@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';">
+<title>Nightreign Relic Build Assistant</title>
+<link rel="stylesheet" href="./styles.css"><meta name="app-version" content="v22-modular-rule-master">
+</head><body><div class="wrap"><div class="sticky-shell"><div class="app-header"><header><div><h1>Nightreign Relic Build Assistant <span class="rid">Phase 1C / Phase 2 Search β v21</span></h1><p>セーブデータからキャラクター別の遺物プリセットを読み取り、プリセット名・登録日時・通常遺物3枠・深層遺物3枠を表示します。セーブへの書き込みや外部送信は行いません。</p></div><div><button class="btn primary" id="importBtn">Import Save</button><input class="hidden" id="fileInput" type="file" accept=".sl2,.co2,application/octet-stream"></div></header><div class="status"><span class="pill" id="saveStatus">セーブ未読込</span><span class="pill" id="playerStatus"></span><span class="pill" id="presetStatus"></span></div></div><div class="app-tabs"><button class="app-tab active" data-app-tab="optimizer">プリセット最適化</button><button class="app-tab" data-app-tab="simulator">遺物編成シミュレーター</button></div><div class="sticky-controls">
+<div id="optimizerStickyControls"><div class="hero-header"><div class="hero-header-top"><div class="hero-header-title">キャラクター</div><div class="header-filter-actions"><button class="btn filter-btn" id="globalIgnoreBtn">全キャラクター共通：評価対象外 <span id="globalIgnoreCount">(0)</span></button><button class="btn filter-btn" id="heroIgnoreBtn" disabled>キャラクター個別：評価対象外 <span id="heroIgnoreCount">(0)</span></button></div></div><div id="heroList" class="hero-list"><div class="muted">セーブ読込後に表示します。</div></div></div></div>
+<div id="simulatorStickyControls" class="hidden"><div class="sim-controls"><div class="sim-controls-top"><div class="hero-header-title">キャラクター</div><div class="sim-filter-actions"><button class="btn filter-btn" id="simGlobalIgnoreBtn">全キャラクター共通：評価対象外 <span id="simGlobalIgnoreCount">(0)</span></button><button class="btn filter-btn" id="simHeroIgnoreBtn" disabled>キャラクター個別：評価対象外 <span id="simHeroIgnoreCount">(0)</span></button></div></div><div id="simHeroList" class="hero-list"><div class="muted">セーブ読込後に表示します。</div></div></div></div>
+</div></div><div id="stickySpacer" class="sticky-spacer" aria-hidden="true"></div><div id="optimizerPanel" class="tab-panel">
+
+<div class="workspace"><main class="main"><div class="main-head"><div><h2 id="viewTitle">プリセット</h2><div class="preset-nav" style="margin-top:8px"><button class="btn nav-btn" id="prevPresetBtn" disabled>← 前</button><select id="presetSelect" class="preset-select" disabled><option>セーブ未読込</option></select><button class="btn nav-btn" id="nextPresetBtn" disabled>次 →</button><span class="preset-position" id="presetPosition"></span></div></div></div><div id="presetList"><div class="empty">セーブデータをインポートしてください。</div></div><div class="note">登録日時はPresetレコードの64-bit FILETIMEを日時へ変換して表示しています。通常3枠はPreset内の先頭3スロット、深層3枠は後半3スロットです。</div></main><aside class="candidate-pane" id="candidatePane"></aside></div></div>
+</div><div id="simulatorPanel" class="tab-panel hidden">
+
+<div class="sim-section"><h2>付けたい効果</h2><div class="sim-help">指定した効果だけを完全一致で判定します。指定していないメリット効果が構成に含まれていても検索結果から除外しません。評価対象外にした効果はここには表示されません。</div><div id="simEffectCategories"><div class="sim-empty">セーブデータをインポートしてください。</div></div><div class="sim-searchbar"><span class="sim-search-summary" id="simConditionSummary">検索条件：0件</span><div class="sim-search-actions"><button class="btn" id="simAdditionalSearchBtn" disabled>追加スキル検索</button><button class="btn danger hidden" id="simAdditionalCancelBtn">検索中断</button><button class="btn primary" id="simSearchBtn" disabled>検索</button></div></div></div>
+<div id="simAdditionalCandidates" class="sim-additional-candidates"></div>
+<div id="simSearchStatus"></div>
+<div id="simDemeritFilter" class="sim-demerit-filter"></div>
+<div class="sim-results"><section class="sim-result-list"><div class="sim-result-list-head">検索結果 <span id="simResultCount" class="muted"></span></div><div id="simResultList" class="sim-result-scroll"><div class="sim-empty">検索後に結果を表示します。</div></div></section><section class="sim-result-detail"><div class="sim-result-detail-head">遺物構成</div><div id="simResultDetail" class="sim-detail-body"><div class="sim-empty">左の検索結果を選択してください。</div></div></section></div>
+</div><div id="ignoreModal" class="modalback hidden"><div class="modal">
+<div class="modal-head"><h2 id="ignoreModalTitle">評価対象外とする効果</h2><button class="btn" id="ignoreModalClose">閉じる</button></div>
+<div class="effect-category-tabs" id="ignoreCategoryTabs">
+<button class="category-btn active" data-ignore-category="all">すべて</button>
+<button class="category-btn" data-ignore-category="status">能力値</button>
+<button class="category-btn" data-ignore-category="attack">攻撃力</button>
+<button class="category-btn" data-ignore-category="skill_arts">スキル／アーツ</button>
+<button class="category-btn" data-ignore-category="magic">魔術／祈祷</button>
+<button class="category-btn" data-ignore-category="defense">カット率</button>
+<button class="category-btn" data-ignore-category="resist">状態異常耐性</button>
+<button class="category-btn" data-ignore-category="heal">回復</button>
+<button class="category-btn" data-ignore-category="action">アクション</button>
+<button class="category-btn" data-ignore-category="starting_bonus">開始ボーナス系</button>
+<button class="category-btn subcategory" data-ignore-category="starting_weapon">↳ 武器（戦技）</button>
+<button class="category-btn subcategory" data-ignore-category="starting_enchant">↳ 武器（付加）</button>
+<button class="category-btn subcategory" data-ignore-category="starting_magic">↳ 武器（魔術／祈祷）</button>
+<button class="category-btn" data-ignore-category="starting_item">出撃時のアイテム</button>
+<button class="category-btn" data-ignore-category="map_environment">マップ環境</button>
+<button class="category-btn" data-ignore-category="team">チームメンバー</button>
+<button class="category-btn" data-ignore-category="character_special">キャラクター固有</button>
+<button class="category-btn" data-ignore-category="weapon">特定武器のみ</button>
+<button class="category-btn" data-ignore-category="demerit_status">デメリット(能力値)</button>
+<button class="category-btn" data-ignore-category="demerit_defense">デメリット(カット率)</button>
+<button class="category-btn" data-ignore-category="demerit_action">デメリット(アクション)</button>
+</div>
+<div class="effect-panel-tools"><input id="ignoreSearch" class="filter-search" placeholder="評価対象外とする効果を検索"><button class="selected-only-btn" id="ignoreSelectedOnly">選択中のみ表示</button></div>
+<div id="ignoreEffectList" class="effect-list"></div>
+<div class="modal-foot"><span id="ignoreModalNote" class="muted"></span><button class="btn" id="ignoreClearBtn">すべて解除</button></div>
+</div></div><script type="module" src="./app.js"></script></body></html>
