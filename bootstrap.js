@@ -1,7 +1,7 @@
 'use strict';
 (async()=>{
   const originalFetch=window.fetch.bind(window);
-  async function loadParts(paths){
+  async function loadParts(paths,label='payload'){
     let b64='';
     for(const path of paths){
       let res;
@@ -13,11 +13,20 @@
       if(!res.ok)throw new Error(`データ読込失敗: ${path} (${res.status})`);
       b64+=(await res.text()).trim();
     }
-    const bin=atob(b64); const bytes=new Uint8Array(bin.length);
-    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    let bytes;
+    try{
+      const bin=atob(b64); bytes=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    }catch(err){
+      throw new Error(`${label} のBase64復元に失敗: ${err?.message||err}`);
+    }
     if(!('DecompressionStream' in window))throw new Error('このブラウザはDecompressionStreamに対応していません。');
-    const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-    return await new Response(stream).text();
+    try{
+      const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+      return await new Response(stream).text();
+    }catch(err){
+      throw new Error(`${label} の展開に失敗: ${err?.message||err}`);
+    }
   }
 
   const packed={
@@ -39,13 +48,16 @@
     const rel='./'+u.pathname.slice(base.pathname.length);
     const parts=packed[rel];
     if(!parts)return originalFetch(input,init);
-    const text=await loadParts(parts);
+    const text=await loadParts(parts,rel);
     return new Response(text,{status:200,headers:{'Content-Type':'application/json; charset=utf-8'}});
   };
 
   let code=await loadParts([
-    './runtime-v22b/app.js.gz.b64.part01','./runtime-v22b/app.js.gz.b64.part02','./runtime-v22b/app.js.gz.b64.part03'
-  ]);
+    './runtime-v22c/app.js.gz.b64.part01',
+    './runtime-v22c/app.js.gz.b64.part01b',
+    './runtime-v22b/app.js.gz.b64.part02',
+    './runtime-v22b/app.js.gz.b64.part03'
+  ],'app.js');
   code=code.replace(/\u0000/g,'\\0');
   const url=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
   const script=document.createElement('script');
