@@ -29,6 +29,9 @@
     }
   }
 
+  if(typeof window.buildRelicStruct!=='function')throw new Error('relic-struct-generator.js の読込に失敗しました。');
+  const RELIC_STRUCT_JSON=JSON.stringify(await window.buildRelicStruct());
+
   const packed={
     './data/effect-rule-master.json':[
       './runtime-v22g/effect-rule-master.part01',
@@ -38,9 +41,6 @@
     ],
     './data/effect-base-master.json':[
       './runtime-v22c/base4000.part01','./runtime-v22c/base4000.part02','./runtime-v22c/base4000.part03','./runtime-v22c/base4000.part04','./runtime-v22c/base4000.part05','./runtime-v22c/base4000.part06'
-    ],
-    './data/relic-struct.json':[
-      './runtime-v22c/relic4000.part01','./runtime-v22c/relic4000.part02','./runtime-v22c/relic4000.part03','./runtime-v22c/relic4000.part04','./runtime-v22c/relic4000.part05'
     ]
   };
 
@@ -49,6 +49,7 @@
     const u=new URL(raw,location.href);
     const base=new URL('./',location.href);
     const rel='./'+u.pathname.slice(base.pathname.length);
+    if(rel==='./data/relic-struct.json')return new Response(RELIC_STRUCT_JSON,{status:200,headers:{'Content-Type':'application/json; charset=utf-8'}});
     const parts=packed[rel];
     if(!parts)return originalFetch(input,init);
     const text=await loadParts(parts,rel);
