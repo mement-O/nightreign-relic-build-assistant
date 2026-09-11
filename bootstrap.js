@@ -31,7 +31,10 @@
 
   const packed={
     './data/effect-rule-master.json':[
-      './runtime/effect-rule-master.json.gz.b64.part01','./runtime/effect-rule-master.json.gz.b64.part02','./runtime/effect-rule-master.json.gz.b64.part03','./runtime/effect-rule-master.json.gz.b64.part04'
+      './runtime-v22g/effect-rule-master.part01',
+      './runtime-v22g/p2/p01','./runtime-v22g/p2/p02','./runtime-v22g/p2/p03','./runtime-v22g/p2/p04',
+      './runtime-v22g/p2/p05','./runtime-v22g/p2/p06','./runtime-v22g/p2/p07','./runtime-v22g/p2/p08',
+      './runtime/effect-rule-master.json.gz.b64.part03','./runtime/effect-rule-master.json.gz.b64.part04'
     ],
     './data/effect-base-master.json':[
       './runtime-v22c/base4000.part01','./runtime-v22c/base4000.part02','./runtime-v22c/base4000.part03','./runtime-v22c/base4000.part04','./runtime-v22c/base4000.part05','./runtime-v22c/base4000.part06'
@@ -67,5 +70,5 @@
   document.head.appendChild(script);
 })().catch(err=>{
   console.error(err);
-  document.body.innerHTML=`<main style="max-width:900px;margin:80px auto;padding:24px;font-family:sans-serif"><h1>起動に失敗しました</h1><p>${String(err?.message||err)}</p></main>`;
+  document.body.innerHTML=`<main style="max-width:900px;margin:80px auto;padding:24px;font-family:sans-serif"><h1>起動に失敗しました</h1><p>${String(err?.message||err)}</p><p>GitHub Pages 上でこの表示が出た場合は、そのエラー文をそのまま共有してください。</p></main>`;
 });
