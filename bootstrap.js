@@ -4,7 +4,12 @@
   async function loadParts(paths){
     let b64='';
     for(const path of paths){
-      const res=await originalFetch(path,{cache:'no-store'});
+      let res;
+      try {
+        res=await originalFetch(new URL(path,location.href).href,{cache:'no-store'});
+      } catch(err) {
+        throw new Error(`データ取得失敗: ${path} / ${err?.message||err}`);
+      }
       if(!res.ok)throw new Error(`データ読込失敗: ${path} (${res.status})`);
       b64+=(await res.text()).trim();
     }
