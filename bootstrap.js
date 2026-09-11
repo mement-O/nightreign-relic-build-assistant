@@ -29,7 +29,16 @@
     }
   }
 
-  if(typeof window.buildRelicStruct!=='function')throw new Error('relic-struct-generator.js の読込に失敗しました。');
+  if(typeof window.buildRelicStruct!=='function'){
+    await new Promise((resolve,reject)=>{
+      const s=document.createElement('script');
+      s.src='./relic-struct-generator.js?v=22h';
+      s.onload=resolve;
+      s.onerror=()=>reject(new Error('relic-struct-generator.js の読込に失敗しました。'));
+      document.head.appendChild(s);
+    });
+  }
+  if(typeof window.buildRelicStruct!=='function')throw new Error('relic-struct-generator.js の初期化に失敗しました。');
   const RELIC_STRUCT_JSON=JSON.stringify(await window.buildRelicStruct());
 
   const packed={
