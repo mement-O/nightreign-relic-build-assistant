@@ -11,8 +11,11 @@
         throw new Error(`データ取得失敗: ${path} / ${err?.message||err}`);
       }
       if(!res.ok)throw new Error(`データ読込失敗: ${path} (${res.status})`);
-      b64+=(await res.text()).trim();
+      let part=(await res.text()).trim();
+      if(path.endsWith('.rev')) part=part.split('').reverse().join('');
+      b64+=part;
     }
+    b64=b64.replace(/\s+/g,'');
     let bytes;
     try{
       const bin=atob(b64); bytes=new Uint8Array(bin.length);
@@ -32,7 +35,7 @@
   if(typeof window.buildRelicStruct!=='function'){
     await new Promise((resolve,reject)=>{
       const s=document.createElement('script');
-      s.src='./relic-struct-generator.js?v=22i';
+      s.src='./relic-struct-generator.js?v=22j';
       s.onload=resolve;
       s.onerror=()=>reject(new Error('relic-struct-generator.js の読込に失敗しました。'));
       document.head.appendChild(s);
@@ -49,7 +52,9 @@
       './runtime/effect-rule-master.json.gz.b64.part03','./runtime/effect-rule-master.json.gz.b64.part04'
     ],
     './data/effect-base-master.json':[
-      './runtime-v22i/effect-base.part01'
+      './runtime-v22c/base4000.part01',
+      './runtime-v22j/base2/p01','./runtime-v22j/base2/p02','./runtime-v22j/base2/p03','./runtime-v22j/base2/p04.rev',
+      './runtime-v22c/base4000.part03','./runtime-v22c/base4000.part04','./runtime-v22c/base4000.part05','./runtime-v22c/base4000.part06'
     ]
   };
 
