@@ -32,7 +32,7 @@
   if(typeof window.buildRelicStruct!=='function'){
     await new Promise((resolve,reject)=>{
       const s=document.createElement('script');
-      s.src='./relic-struct-generator.js?v=22h';
+      s.src='./relic-struct-generator.js?v=22i';
       s.onload=resolve;
       s.onerror=()=>reject(new Error('relic-struct-generator.js の読込に失敗しました。'));
       document.head.appendChild(s);
@@ -49,7 +49,7 @@
       './runtime/effect-rule-master.json.gz.b64.part03','./runtime/effect-rule-master.json.gz.b64.part04'
     ],
     './data/effect-base-master.json':[
-      './runtime-v22c/base4000.part01','./runtime-v22c/base4000.part02','./runtime-v22c/base4000.part03','./runtime-v22c/base4000.part04','./runtime-v22c/base4000.part05','./runtime-v22c/base4000.part06'
+      './runtime-v22i/effect-base.part01'
     ]
   };
 
