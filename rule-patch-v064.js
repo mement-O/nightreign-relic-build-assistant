@@ -14,8 +14,11 @@
     for(const effect of effects){
       const fix=corrections[effect.masterKey];
       if(fix)Object.assign(effect,fix);
+      if(/^name:.+の攻撃で(?:ＨＰ|ＦＰ)回復$/.test(effect.masterKey)){
+        effect.category='weapon';
+      }
     }
-    if(!Array.isArray(data))data.version='0.6.4';
+    if(!Array.isArray(data))data.version='0.6.5';
     return JSON.stringify(data);
   }
 
