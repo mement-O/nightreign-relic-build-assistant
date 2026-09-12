@@ -44,6 +44,47 @@
   if(typeof window.buildRelicStruct!=='function')throw new Error('relic-struct-generator.js の初期化に失敗しました。');
   const RELIC_STRUCT_JSON=JSON.stringify(await window.buildRelicStruct());
 
+  const v063Maxima={
+    'name:最大ＨＰ上昇#normal':1,
+    'name:最大ＦＰ上昇#normal':1,
+    'name:最大スタミナ上昇#normal':1,
+    'name:近接攻撃力上昇':2,
+    'name:戦技攻撃力上昇':2,
+    'name:攻撃連続時、攻撃力上昇':1,
+    'name:致命の一撃強化+1':1,
+    'name:武器の持ち替え時、物理攻撃力上昇':1,
+    'name:属性攻撃力が付加された時、属性攻撃力上昇':3,
+    'name:状態異常ゲージがある時、徐々に攻撃力上昇':1,
+    'name:魔術／祈祷、効果時間延長':1,
+    'group:improvedPhysicalDamageNegation#normal':1,
+    'name:ＨＰ持続回復':2,
+    'name:周囲で腐敗状態の発生時、ＨＰ持続回復':1,
+    'name:ＦＰ持続回復':1,
+    'name:攻撃連続時、ＦＰ回復':2,
+    'name:発狂状態になると、ＦＰ持続回復':2,
+    'name:攻撃命中時、スタミナ回復+1':1,
+    'name:武器の持ち替え時、いずれかの属性攻撃力を付加':1,
+    'name:被ダメージ時、腐敗の状態異常を付加':1,
+    'name:ジェスチャー「あぐら」により、発狂が蓄積':2,
+    'name:カット率低下時、稀に敵から受ける攻撃を無効化':1,
+    'name:周囲で毒／腐敗状態の発生時、攻撃力上昇':1,
+    'name:周囲で凍傷状態の発生時、自身の姿を隠す':1,
+    'name:出撃中、ショップでの購入に必要なルーンが大割引':1
+  };
+
+  function applyV063RulePatch(text){
+    const data=JSON.parse(text);
+    const effects=Array.isArray(data)?data:data.effects;
+    if(!Array.isArray(effects))throw new Error('effect-rule-master の形式が不正です。');
+    for(const effect of effects){
+      if(Object.prototype.hasOwnProperty.call(v063Maxima,effect.masterKey)){
+        effect.theoreticalMax=v063Maxima[effect.masterKey];
+      }
+    }
+    if(!Array.isArray(data))data.version='0.6.3';
+    return JSON.stringify(data);
+  }
+
   const packed={
     './data/effect-rule-master.json':[
       './runtime-v22g/effect-rule-master.part01',
@@ -66,7 +107,8 @@
     if(rel==='./data/relic-struct.json')return new Response(RELIC_STRUCT_JSON,{status:200,headers:{'Content-Type':'application/json; charset=utf-8'}});
     const parts=packed[rel];
     if(!parts)return originalFetch(input,init);
-    const text=await loadParts(parts,rel);
+    let text=await loadParts(parts,rel);
+    if(rel==='./data/effect-rule-master.json')text=applyV063RulePatch(text);
     return new Response(text,{status:200,headers:{'Content-Type':'application/json; charset=utf-8'}});
   };
 
