@@ -1,0 +1,11 @@
+/* Game-filter hierarchy generated from the formal master. */
+.master-original-tabs{display:none!important}
+.master-ignore-hierarchy{display:flex;flex-direction:column;gap:7px;margin-bottom:8px;max-height:31vh;overflow:auto;padding-right:2px}
+.master-filter-major{border-bottom:1px solid #303744;padding:0 0 7px}
+.master-filter-major:last-child{border-bottom:0}
+.master-filter-major-title{font-size:12px;font-weight:850;color:#aeb8c8;margin:0 0 5px}
+.master-filter-group-row{display:flex;flex-wrap:wrap;gap:5px}
+.master-major-heading{font-size:14px;font-weight:900;color:#dce5f3;margin:16px 0 8px;padding:7px 0 5px;border-bottom:1px solid #3a4352}
+.master-major-heading:first-child{margin-top:0}
+.master-subgroup-heading{grid-column:1/-1;font-size:12px;font-weight:850;color:#aeb8c8;margin:7px 0 0;padding:5px 1px;border-bottom:1px solid #2c3441}
+.master-ignore-empty{padding:18px;text-align:center}
