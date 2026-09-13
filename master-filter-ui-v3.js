@@ -41,6 +41,22 @@
   function simLabel(n){return $('.sim-effect-label',n)?.textContent||n.textContent||''}
   function ignoreLabel(n){return $('label',n)?.textContent||n.textContent||''}
   function key(e){return e?.sortOrder??Number.MAX_SAFE_INTEGER}
+  function rankInfo(label){
+    const n=norm(label);
+    const m=n.match(/\+(\d+)$/);
+    return {base:m?n.slice(0,m.index):n,rank:m?Number(m[1]):0,explicit:!!m};
+  }
+  function compareEffects(a,b,labelFn){
+    const la=labelFn(a),lb=labelFn(b),ea=entry(la),eb=entry(lb);
+    const pa=rankInfo(la),pb=rankInfo(lb);
+    // Within one visible effect family always use base -> +1 -> +2 -> ... .
+    // This overrides inconsistent internal Effect ID/displayOrder ordering only inside the family.
+    if(pa.base===pb.base){
+      if(pa.rank!==pb.rank)return pa.rank-pb.rank;
+      if(pa.explicit!==pb.explicit)return pa.explicit?1:-1;
+    }
+    return key(ea)-key(eb);
+  }
   function selectedHero(){
     const active=$('#simHeroList .hero-btn.active,#simHeroList button.active,#simHeroList [aria-pressed="true"]');
     const texts=[active?.textContent,$('#simHeroIgnoreBtn')?.textContent].filter(Boolean).join(' ');
@@ -67,7 +83,7 @@
         const grid=$('.sim-effect-grid',section);if(!grid)continue;
         let nodes=$$('.sim-effect',grid);
         for(const node of nodes){const e=entry(simLabel(node));node.classList.toggle('master-hidden-character',!!(hero&&e?.major==='特定キャラクターのみ'&&e.group!==hero))}
-        nodes=[...nodes].sort((a,b)=>key(entry(simLabel(a)))-key(entry(simLabel(b))));
+        nodes=[...nodes].sort((a,b)=>compareEffects(a,b,simLabel));
         for(const n of nodes)grid.appendChild(n);
         const firstVisible=nodes.find(n=>!n.classList.contains('master-hidden-character'));
         const firstEntry=firstVisible&&entry(simLabel(firstVisible));
@@ -96,7 +112,7 @@
   function fallback(label){if(ignoreSelection.mode==='all')return true;const n=norm(label),M=ignoreSelection.major,g=ignoreSelection.group;if(M==='特定キャラクターのみ')return n.includes(norm('【'+g+'】'));if(M==='特定武器のみ')return direct(label)?.group===g;if(M==='全般'&&g==='出撃時のアイテム（結晶の雫）')return CRYSTAL_WORDS.some(w=>n.includes(norm(w)));if(M==='全般'&&g==='出撃時のアイテム')return !CRYSTAL_WORDS.some(w=>n.includes(norm(w)));return true}
   function applyIgnore(){
     const list=$('#ignoreEffectList');if(!list||ignoreApplying)return;const opts=$$('.effect-option',list);if(!opts.length)return;ignoreApplying=true;ignoreObserver?.disconnect();
-    try{const items=opts.map((node,i)=>({node,i,label:ignoreLabel(node),e:entry(ignoreLabel(node))}));const sorted=[...items].sort((a,b)=>key(a.e)-key(b.e)||a.i-b.i);for(const x of sorted){let show=true;if(ignoreSelection.mode==='group')show=x.e?(x.e.major===ignoreSelection.major&&x.e.group===ignoreSelection.group):fallback(x.label);x.node.style.display=show?'':'none'}const cur=$$('.effect-option',list),want=sorted.map(x=>x.node);if(cur.some((n,i)=>n!==want[i]))for(const n of want)list.appendChild(n);for(const c of [...list.children])if(!c.classList.contains('effect-option')&&!c.classList.contains('master-ignore-empty'))c.style.display=ignoreSelection.mode==='all'?'':'none';let empty=$('.master-ignore-empty',list),vis=sorted.some(x=>x.node.style.display!=='none');if(!vis){if(!empty){empty=document.createElement('div');empty.className='master-ignore-empty muted';empty.textContent='この分類に表示できる効果はありません。';list.appendChild(empty)}empty.style.display=''}else if(empty)empty.style.display='none'}finally{ignoreApplying=false;observeIgnore()}
+    try{const items=opts.map((node,i)=>({node,i,label:ignoreLabel(node),e:entry(ignoreLabel(node))}));const sorted=[...items].sort((a,b)=>compareEffects(a.node,b.node,ignoreLabel)||a.i-b.i);for(const x of sorted){let show=true;if(ignoreSelection.mode==='group')show=x.e?(x.e.major===ignoreSelection.major&&x.e.group===ignoreSelection.group):fallback(x.label);x.node.style.display=show?'':'none'}const cur=$$('.effect-option',list),want=sorted.map(x=>x.node);if(cur.some((n,i)=>n!==want[i]))for(const n of want)list.appendChild(n);for(const c of [...list.children])if(!c.classList.contains('effect-option')&&!c.classList.contains('master-ignore-empty'))c.style.display=ignoreSelection.mode==='all'?'':'none';let empty=$('.master-ignore-empty',list),vis=sorted.some(x=>x.node.style.display!=='none');if(!vis){if(!empty){empty=document.createElement('div');empty.className='master-ignore-empty muted';empty.textContent='この分類に表示できる効果はありません。';list.appendChild(empty)}empty.style.display=''}else if(empty)empty.style.display='none'}finally{ignoreApplying=false;observeIgnore()}
   }
   function bind(){createIgnoreNav();simObserver=new MutationObserver(()=>{if(!simApplying)qSim()});ignoreObserver=new MutationObserver(()=>{if(!ignoreApplying)qIgnore()});observeSim();observeIgnore();restoreAll();qSim();$('#simHeroList')?.addEventListener('click',()=>setTimeout(qSim,0),true)}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else bind();
