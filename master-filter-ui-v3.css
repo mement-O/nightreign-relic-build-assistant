@@ -3,13 +3,24 @@
 .master-hide-category-title{display:none!important}
 .master-weapon-row{
   grid-column:1/-1;
-  display:grid;
-  grid-template-columns:repeat(5,minmax(0,1fr));
+  display:flex;
+  flex-wrap:wrap;
+  align-items:stretch;
   gap:7px;
   padding:7px 0;
   border-top:1px solid #2c3441;
 }
 .master-weapon-row:first-of-type{border-top:0;padding-top:0}
-.master-weapon-row .sim-effect{min-width:0}
-@media(max-width:1250px){.master-weapon-row{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:800px){.master-weapon-row{grid-template-columns:1fr}}
+.master-weapon-row .sim-effect{
+  min-width:245px;
+  width:max-content;
+  max-width:min(100%,430px);
+  flex:0 1 auto;
+}
+@media(max-width:800px){
+  .master-weapon-row .sim-effect{
+    min-width:min(245px,100%);
+    width:100%;
+    max-width:100%;
+  }
+}
