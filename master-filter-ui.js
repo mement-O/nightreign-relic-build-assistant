@@ -142,8 +142,6 @@
         btn.addEventListener('click',()=>{
           ignoreSelection={mode:'group',major:major.label,group:group.label,category:group.category};
           setActiveMasterButton(btn);
-          // The legacy category renderer only materializes one category at a time.
-          // Always return it to "all", then filter the complete list ourselves.
           restoreOriginalAllThenApply();
         });
         row.appendChild(btn);
@@ -159,7 +157,7 @@
     if(major==='特定キャラクターのみ')return n.includes(normalizeLabel('【'+group+'】'));
     if(major==='特定武器のみ')return directEntryForLabel(label)?.group===group;
     if(major==='全般'&&group==='出撃時のアイテム（結晶の雫）')return CRYSTAL_WORDS.some(w=>n.includes(normalizeLabel(w)));
-    if(major==='全般'&&group==='出撃時のアイテム')return !CRYSTAL_WORDS.some(w=>n.includes(normalizeLabel(w));
+    if(major==='全般'&&group==='出撃時のアイテム')return !CRYSTAL_WORDS.some(w=>n.includes(normalizeLabel(w)));
     return true;
   }
   function applyIgnoreList(){
