@@ -34,7 +34,7 @@
       else if(n.startsWith(wn+'の武器種を3つ以上装備していると'))kind=3;
       else if(n.includes(normalizeLabel('潜在する力から、'+w+'を見つけやすくなる')))kind=4;
       if(kind>=0){
-        const wi=WEAPONS.indexOf(w), rank=Number((n.match(/\+(\d+)$/)||[])[1]||0);
+        const wi=WEAPONS.indexOf(w),rank=Number((n.match(/\+(\d+)$/)||[])[1]||0);
         return {major:'特定武器のみ',group:w,category:'weapon',sortOrder:300000+wi*1000+kind*100+rank};
       }
     }
@@ -55,9 +55,8 @@
           const effects=Array.isArray(data)?data:data.effects;
           for(const effect of effects||[]){
             let d=null;
-            if(effect.gameMajor&&effect.gameGroup){
-              d={major:effect.gameMajor,group:effect.gameGroup,category:effect.category,sortOrder:effect.displayOrder,itemOrder:effect.gameItemOrder,subOrder:effect.gameSubOrder};
-            }else d=master.classify?.(effect)||directEntryForLabel(effectDisplay(effect));
+            if(effect.gameMajor&&effect.gameGroup)d={major:effect.gameMajor,group:effect.gameGroup,category:effect.category,sortOrder:effect.displayOrder,itemOrder:effect.gameItemOrder,subOrder:effect.gameSubOrder};
+            else d=master.classify?.(effect)||directEntryForLabel(effectDisplay(effect));
             if(!d)continue;
             putIndex({...d,masterKey:effect.masterKey,displayNameJa:effectDisplay(effect)});
           }
@@ -118,19 +117,36 @@
 
   function originalCategoryButton(category){try{return $(`#ignoreCategoryTabs [data-ignore-category="${CSS.escape(category)}"]`);}catch{return null;}}
   function setActiveMasterButton(btn){$$('.master-filter-btn').forEach(b=>b.classList.toggle('active',b===btn));}
+  function queueIgnoreApply(){
+    requestAnimationFrame(()=>requestAnimationFrame(applyIgnoreList));
+    setTimeout(applyIgnoreList,40);
+    setTimeout(applyIgnoreList,120);
+  }
+  function restoreOriginalAllThenApply(){
+    const all=originalCategoryButton('all');
+    if(all&&!all.classList.contains('active'))all.click();
+    queueIgnoreApply();
+  }
   function createIgnoreHierarchy(){
     const old=$('#ignoreCategoryTabs');if(!old||$('#masterIgnoreHierarchy'))return;
     old.classList.add('master-original-tabs');
     const nav=document.createElement('div');nav.id='masterIgnoreHierarchy';nav.className='master-ignore-hierarchy';
     const all=document.createElement('button');all.type='button';all.className='category-btn master-filter-btn active';all.textContent='すべて';
-    all.addEventListener('click',()=>{ignoreSelection={mode:'all',major:null,group:null,category:'all'};originalCategoryButton('all')?.click();setActiveMasterButton(all);setTimeout(applyIgnoreList,0);});nav.appendChild(all);
+    all.addEventListener('click',()=>{ignoreSelection={mode:'all',major:null,group:null,category:'all'};setActiveMasterButton(all);restoreOriginalAllThenApply();});nav.appendChild(all);
     for(const major of master.hierarchy){
       const block=document.createElement('section');block.className='master-filter-major';
       const title=document.createElement('div');title.className='master-filter-major-title';title.textContent=major.label;block.appendChild(title);
       const row=document.createElement('div');row.className='master-filter-group-row';
       for(const group of major.groups){
         const btn=document.createElement('button');btn.type='button';btn.className='category-btn master-filter-btn';btn.textContent=group.label;
-        btn.addEventListener('click',()=>{ignoreSelection={mode:'group',major:major.label,group:group.label,category:group.category};originalCategoryButton(group.category)?.click();setActiveMasterButton(btn);setTimeout(applyIgnoreList,0);});row.appendChild(btn);
+        btn.addEventListener('click',()=>{
+          ignoreSelection={mode:'group',major:major.label,group:group.label,category:group.category};
+          setActiveMasterButton(btn);
+          // The legacy category renderer only materializes one category at a time.
+          // Always return it to "all", then filter the complete list ourselves.
+          restoreOriginalAllThenApply();
+        });
+        row.appendChild(btn);
       }
       block.appendChild(row);nav.appendChild(block);
     }
@@ -139,11 +155,11 @@
 
   function fallbackBelongs(label){
     if(ignoreSelection.mode==='all')return true;
-    const n=normalizeLabel(label), major=ignoreSelection.major, group=ignoreSelection.group;
+    const n=normalizeLabel(label),major=ignoreSelection.major,group=ignoreSelection.group;
     if(major==='特定キャラクターのみ')return n.includes(normalizeLabel('【'+group+'】'));
     if(major==='特定武器のみ')return directEntryForLabel(label)?.group===group;
     if(major==='全般'&&group==='出撃時のアイテム（結晶の雫）')return CRYSTAL_WORDS.some(w=>n.includes(normalizeLabel(w)));
-    if(major==='全般'&&group==='出撃時のアイテム')return !CRYSTAL_WORDS.some(w=>n.includes(normalizeLabel(w)));
+    if(major==='全般'&&group==='出撃時のアイテム')return !CRYSTAL_WORDS.some(w=>n.includes(normalizeLabel(w));
     return true;
   }
   function applyIgnoreList(){
@@ -165,7 +181,9 @@
   }
 
   function bind(){
-    createIgnoreHierarchy();applySimulatorHierarchy();applyIgnoreList();
+    createIgnoreHierarchy();
+    restoreOriginalAllThenApply();
+    applySimulatorHierarchy();
     const sim=$('#simEffectCategories');if(sim)new MutationObserver(()=>{if(!busy)requestAnimationFrame(applySimulatorHierarchy)}).observe(sim,{childList:true,subtree:true});
     const ignore=$('#ignoreEffectList');if(ignore)new MutationObserver(()=>{if(!busy)requestAnimationFrame(applyIgnoreList)}).observe(ignore,{childList:true,subtree:true});
   }
