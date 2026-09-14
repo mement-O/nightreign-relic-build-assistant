@@ -17,6 +17,14 @@
   max-width:min(100%,430px);
   flex:0 1 auto;
 }
+
+/* Ignore-filter cleanup:
+   - 松明 is a leftover category with no usable relic effects.
+   - Demerit effects are handled by the simulator's dedicated demerit exclusion UI,
+     so they are not exposed as ignore-filter categories. */
+#masterIgnoreHierarchy .master-filter-major:nth-of-type(3) .master-filter-group-row > .category-btn:nth-child(31){display:none!important}
+#masterIgnoreHierarchy .master-filter-major:last-child{display:none!important}
+
 @media(max-width:800px){
   .master-weapon-row .sim-effect{
     min-width:min(245px,100%);
