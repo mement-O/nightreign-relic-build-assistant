@@ -113,10 +113,7 @@
   };
 
   let code=await loadParts([
-    './runtime-v22c/app.js.gz.b64.part01',
-    './runtime-v22c/app.js.gz.b64.part01b',
-    './runtime-v22b/app.js.gz.b64.part02',
-    './runtime-v22b/app.js.gz.b64.part03'
+    './runtime-v22z/app.js.gz.b64'
   ],'app.js');
   code=code.replace(/\u0000/g,'\\0');
   const url=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
