@@ -80,17 +80,8 @@
   }
 
   const packed={
-    './data/effect-rule-master.json':[
-      './runtime-v22g/effect-rule-master.part01',
-      './runtime-v22g/p2/p01','./runtime-v22g/p2/p02','./runtime-v22g/p2/p03','./runtime-v22g/p2/p04',
-      './runtime-v22g/p2/p05','./runtime-v22g/p2/p06','./runtime-v22g/p2/p07','./runtime-v22g/p2/p08',
-      './runtime/effect-rule-master.json.gz.b64.part03','./runtime/effect-rule-master.json.gz.b64.part04'
-    ],
-    './data/effect-base-master.json':[
-      './runtime-v22c/base4000.part01',
-      './runtime-v22j/base2/p01','./runtime-v22j/base2/p02','./runtime-v22j/base2/p03','./runtime-v22j/base2/p04.rev',
-      './runtime-v22c/base4000.part03','./runtime-v22c/base4000.part04','./runtime-v22c/base4000.part05','./runtime-v22c/base4000.part06'
-    ]
+    './data/effect-rule-master.json':['./runtime-v23f/effect-rule-master.json.gz.b64'],
+    './data/effect-base-master.json':['./runtime-v23f/effect-base-master.json.gz.b64']
   };
 
   window.fetch=async function(input,init){

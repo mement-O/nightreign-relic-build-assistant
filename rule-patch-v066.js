@@ -60,7 +60,7 @@
         effect.gameSubOrder=d.subOrder;
       }
     }
-    if(!Array.isArray(data))data.version='0.6.7-game-filter';
+    if(!Array.isArray(data))data.version='0.6.8-q2-game-filter';
     return JSON.stringify(data);
   }
   function isRuleMaster(input){
