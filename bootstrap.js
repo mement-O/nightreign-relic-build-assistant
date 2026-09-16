@@ -81,7 +81,7 @@
 
   const packed={
     './data/effect-rule-master.json':['./runtime-v23f/effect-rule-master.json.gz.b64'],
-    './data/effect-base-master.json':['./runtime-v23f/effect-base-master.json.gz.b64']
+    './data/effect-base-master.json':['./runtime-v23g/effect-base-master.json.gz.b64']
   };
 
   window.fetch=async function(input,init){
