@@ -35,7 +35,7 @@
   if(typeof window.buildRelicStruct!=='function'){
     await new Promise((resolve,reject)=>{
       const s=document.createElement('script');
-      s.src='./relic-struct-generator.js?v=22j';
+      s.src='./relic-struct-generator.js?v=23d';
       s.onload=resolve;
       s.onerror=()=>reject(new Error('relic-struct-generator.js の読込に失敗しました。'));
       document.head.appendChild(s);
