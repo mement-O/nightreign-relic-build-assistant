@@ -32,17 +32,11 @@
     }
   }
 
-  if(typeof window.buildRelicStruct!=='function'){
-    await new Promise((resolve,reject)=>{
-      const s=document.createElement('script');
-      s.src='./relic-struct-generator.js?v=23d';
-      s.onload=resolve;
-      s.onerror=()=>reject(new Error('relic-struct-generator.js の読込に失敗しました。'));
-      document.head.appendChild(s);
-    });
-  }
-  if(typeof window.buildRelicStruct!=='function')throw new Error('relic-struct-generator.js の初期化に失敗しました。');
-  const RELIC_STRUCT_JSON=JSON.stringify(await window.buildRelicStruct());
+  const structRes=await originalFetch('./data/relic-struct.json',{cache:'no-store'});
+  if(!structRes.ok)throw new Error(`relic-struct.json 読込失敗 (${structRes.status})`);
+  const struct=await structRes.json();
+  if(!struct.r||!Object.keys(struct.r).length||Object.values(struct.r).some(v=>!Array.isArray(v)||v.length!==2||!Number.isInteger(v[0])||v[0]<0||v[0]>3||(v[1]!==0&&v[1]!==1)))throw new Error('遺物の色・通常／深層マスタが不正です。');
+  const RELIC_STRUCT_JSON=JSON.stringify(struct);
 
   const v063Maxima={
     'name:最大ＨＰ上昇#normal':1,
@@ -113,7 +107,7 @@
   };
 
   let code=await loadParts([
-    './runtime-v23c/app.js.gz.b64'
+    './runtime-v23e/app.js.gz.b64'
   ],'app.js');
   code=code.replace(/\u0000/g,'\\0');
   const url=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
