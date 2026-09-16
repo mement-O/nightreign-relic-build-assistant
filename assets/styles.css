@@ -1,3 +1,4 @@
+/* styles.css (v23h source) */
 :root{--bg:#090b0f;--panel:#151820;--panel2:#1d222c;--border:#343a47;--text:#eef2f7;--muted:#9ca6b5;--blue:#4d86ff;--purple:#b279ff;--red:#ff5461;--yellow:#f6bd48;--green:#31cf8b}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI","Yu Gothic UI",Meiryo,sans-serif}button,input,select{font:inherit}button{cursor:pointer}.wrap{max-width:1500px;margin:auto;padding:24px}
 .app-header{position:sticky;top:0;z-index:30;background:var(--bg);padding-top:2px;border-bottom:1px solid var(--border);box-shadow:0 8px 18px rgba(0,0,0,.22)}
@@ -182,4 +183,68 @@ header{display:flex;justify-content:space-between;gap:18px;align-items:flex-star
 .sticky-spacer{height:0}
 @media(max-width:700px){
   .sticky-shell{padding:12px 12px 0}
+}
+
+/* header-actions.css (v23h source) */
+.sim-controls-split{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:end;padding:10px 14px}.sim-header-left{display:flex;flex-direction:column;gap:8px;min-width:0}.sim-sticky-right{display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-end;gap:8px;min-width:0}.sim-filter-actions,.sim-header-search-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.sim-header-search-actions .btn{min-width:120px}.sim-header-search-actions .btn.primary{min-width:140px}.sim-controls-split .hero-list{margin:0}.sim-controls-split .hero-btn{padding-top:7px;padding-bottom:7px}.sim-controls-split .hero-header-title{line-height:1}.sim-search-scroll-target{scroll-margin-top:210px}@media(max-width:1100px){.sim-controls-split{grid-template-columns:1fr;align-items:start}.sim-sticky-right{align-items:stretch}.sim-filter-actions,.sim-header-search-actions{justify-content:flex-start}.sim-header-search-actions .btn{min-width:0;flex:1 1 120px}}@media(max-width:900px){.sim-controls-split{padding:10px}.sim-sticky-right{width:100%}}
+
+/* master-filter-ui.css (v23h source) */
+/* Game-filter hierarchy generated from the formal master. */
+.master-original-tabs{display:none!important}
+.master-ignore-hierarchy{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  margin-bottom:8px;
+  max-height:31vh;
+  overflow:auto;
+  padding-right:4px;
+  flex:none;
+  min-height:0;
+}
+.master-ignore-hierarchy>.master-filter-btn{align-self:flex-start}
+.master-filter-major{border-bottom:1px solid #303744;padding:0 0 7px;flex:none}
+.master-filter-major:last-child{border-bottom:0}
+.master-filter-major-title{font-size:12px;font-weight:850;color:#aeb8c8;margin:0 0 5px}
+.master-filter-group-row{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.master-filter-group-row .category-btn{flex:0 0 auto}
+.master-major-heading{font-size:14px;font-weight:900;color:#dce5f3;margin:16px 0 8px;padding:7px 0 5px;border-bottom:1px solid #3a4352}
+.master-major-heading:first-child{margin-top:0}
+.master-subgroup-heading{grid-column:1/-1;font-size:12px;font-weight:850;color:#aeb8c8;margin:7px 0 0;padding:5px 1px;border-bottom:1px solid #2c3441}
+.master-ignore-empty{padding:18px;text-align:center}
+
+/* master-filter-ui-v3.css (v23h source) */
+/* Compact hierarchy refinements for the simulator. */
+.master-hidden-character{display:none!important}
+.master-hide-category-title{display:none!important}
+.master-weapon-row{
+  grid-column:1/-1;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:stretch;
+  gap:7px;
+  padding:7px 0;
+  border-top:1px solid #2c3441;
+}
+.master-weapon-row:first-of-type{border-top:0;padding-top:0}
+.master-weapon-row .sim-effect{
+  min-width:245px;
+  width:max-content;
+  max-width:min(100%,430px);
+  flex:0 1 auto;
+}
+
+/* Ignore-filter cleanup:
+   - 松明 is a leftover category with no usable relic effects.
+   - Demerit effects are handled by the simulator's dedicated demerit exclusion UI,
+     so they are not exposed as ignore-filter categories. */
+#masterIgnoreHierarchy .master-filter-major:nth-of-type(3) .master-filter-group-row > .category-btn:nth-child(31){display:none!important}
+#masterIgnoreHierarchy .master-filter-major:last-child{display:none!important}
+
+@media(max-width:800px){
+  .master-weapon-row .sim-effect{
+    min-width:min(245px,100%);
+    width:100%;
+    max-width:100%;
+  }
 }
