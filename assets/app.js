@@ -41,8 +41,9 @@ function activateSimConditionsForHero(hero=state.hero){
  state.simConditions=simConditionsForHero(hero);
  return state.simConditions
 }
-let simSearchRevision=0,simActiveSearch=null;
+let simSearchRevision=0,simActiveSearch=null,simAdditionalRefreshTimer=null;
 function simInvalidateSearch(){
+ if(simAdditionalRefreshTimer!==null){clearTimeout(simAdditionalRefreshTimer);simAdditionalRefreshTimer=null;}
  simSearchRevision++;simActiveSearch=null;simSearchRankMetaCache=null;
  state.simAdditionalCancelRequested=false;
  state.simResults=[];state.simSelectedResult=-1;state.simAdditionalCandidates=[];state.simAdditionalStats=null;
@@ -51,12 +52,25 @@ function simInvalidateSearch(){
 }
 function simUpdateSearchButtons(){
  const busy=simActiveSearch!==null;
- const normal=$('#simSearchBtn'),additional=$('#simAdditionalSearchBtn'),cancel=$('#simAdditionalCancelBtn');
- if(normal){normal.disabled=busy||!state.relics.size;normal.textContent=simActiveSearch==='normal'?'検索中…':'検索';}
- if(additional){additional.disabled=busy||!state.relics.size;additional.textContent=simActiveSearch==='additional'?'追加検索中…':'追加スキル検索';}
- if(cancel){cancel.classList.toggle('hidden',simActiveSearch!=='additional');cancel.disabled=state.simAdditionalCancelRequested;cancel.textContent=state.simAdditionalCancelRequested?'中断中…':'検索中断';}
+ for(const [id,kind,label] of [['#simSearchBtn','normal','検索'],['#simAdditionalSearchBtn','additional','追加スキル検索']]){
+  const b=$(id);if(!b)continue;const own=simActiveSearch===kind;
+  b.disabled=!state.relics.size||(busy&&!own)||(own&&state.simAdditionalCancelRequested);
+  b.textContent=own?(state.simAdditionalCancelRequested?'中断中…':'検索中断'):label;b.classList.toggle('danger',own);
+ }
 }
-function simBeginSearch(kind){simInvalidateSearch();simActiveSearch=kind;simUpdateSearchButtons();return simSearchRevision;}
+function simBeginSearch(kind){
+ const previous=kind==='additional'?{results:state.simResults,selected:state.simSelectedResult}:null;
+ simInvalidateSearch();if(previous){state.simResults=previous.results;state.simSelectedResult=previous.selected;renderSimResults();}
+ simActiveSearch=kind;simUpdateSearchButtons();return simSearchRevision;
+}
+function simRequestCancel(kind){if(simActiveSearch!==kind)return;state.simAdditionalCancelRequested=true;simUpdateSearchButtons();}
+function simScrollToOutput(kind){requestAnimationFrame(()=>{const target=$(kind==='additional'?'#simAdditionalCandidates':'#simSearchStatus');if(!target)return;const offset=(document.querySelector('.sticky-shell')?.getBoundingClientRect().height||180)+12;window.scrollTo({top:Math.max(0,window.scrollY+target.getBoundingClientRect().top-offset),behavior:'smooth'});});}
+function simDemeritSelectionChanged(){
+ const refresh=state.simAdditionalCandidates.length>0||state.simAdditionalStats!==null||simActiveSearch==='additional'||simAdditionalRefreshTimer!==null;
+ if(simActiveSearch!==null||refresh){const results=state.simResults,selected=state.simSelectedResult;simInvalidateSearch();state.simResults=results;state.simSelectedResult=selected;renderSimResults();}
+ persistAppState();renderSimDemeritFilter();
+ if(refresh){const revision=simSearchRevision;simAdditionalRefreshTimer=setTimeout(()=>{simAdditionalRefreshTimer=null;if(revision===simSearchRevision&&state.simConditions.size)runSimulatorAdditionalSearch();},150);}
+}
 function simFinishSearch(revision){if(revision!==simSearchRevision)return;simActiveSearch=null;simSearchRankMetaCache=null;simUpdateSearchButtons();}
 
 function removeIgnoredSimConditions(){
@@ -946,8 +960,7 @@ async function runSimulatorAdditionalSearch(){
  if(!state.simConditions.size){alert('まず検索条件を1つ以上選択してください。');return}
  const searchRevision=simBeginSearch('additional');
  const started=performance.now(),formatElapsed=ms=>{if(ms<1000)return `${Math.round(ms)}ms`;const s=ms/1000;if(s<60)return `${s.toFixed(s<10?2:1)}秒`;const m=Math.floor(s/60),rs=s-m*60;return `${m}分${rs.toFixed(1)}秒`};
- const btn=$('#simAdditionalSearchBtn'),cancelBtn=$('#simAdditionalCancelBtn'),oldText=btn.textContent;btn.disabled=true;$('#simSearchBtn').disabled=true;btn.textContent='追加検索中…';
- state.simAdditionalCancelRequested=false;cancelBtn.disabled=false;cancelBtn.textContent='検索中断';cancelBtn.classList.remove('hidden');
+ simUpdateSearchButtons();
  state.simAdditionalCandidates=[];state.simAdditionalStats=null;renderSimAdditionalCandidates();
  simSearchRankMetaCache=simRankMetaMap();
  await new Promise(r=>setTimeout(r,0));
@@ -1026,7 +1039,7 @@ async function runSimulatorSearch(){
  // v7で追加した+0始まりランク判定用メタ情報は、simCatalog()の全遺物走査を伴う。
  // 探索ノードごとに再生成すると極端に遅くなるため、検索1回につき1度だけ固定する。
  simSearchRankMetaCache=simRankMetaMap();
- const btn=$('#simSearchBtn');btn.disabled=true;const oldText=btn.textContent;btn.textContent='検索中…';state.simResults=[];state.simSelectedResult=-1;
+ simUpdateSearchButtons();state.simResults=[];state.simSelectedResult=-1;
  $('#simSearchStatus').innerHTML='<div class="note">検索中… 0件（探索パターン 0 / 経過 0.00秒）</div>';renderSimDemeritFilter();renderSimResults();
  await new Promise(r=>setTimeout(r,0));
  if(searchRevision!==simSearchRevision)return;
@@ -1037,7 +1050,7 @@ async function runSimulatorSearch(){
    const groupPools=simGroupedCandidatePools(vessel,searchInfo);if(groupPools.some(p=>!p.length))continue;
    const bounds=simRemainingGroupBounds(groupPools);
    async function dfs(depth){
-    if(searchRevision!==simSearchRevision)return true;
+    if(searchRevision!==simSearchRevision||state.simAdditionalCancelRequested)return true;
     if(state.simResults.length>=50){capped=true;return true}
     if(!simCanStillReach(measures,bounds,depth))return false;
     if(depth===6){
@@ -1058,12 +1071,12 @@ async function runSimulatorSearch(){
     }
     return false
    }
-   if(await dfs(0)&&(state.simResults.length>=50||searchRevision!==simSearchRevision))break outer
+   if(await dfs(0)&&(state.simResults.length>=50||searchRevision!==simSearchRevision||state.simAdditionalCancelRequested))break outer
   }
  }finally{simFinishSearch(searchRevision)}
  if(searchRevision!==simSearchRevision)return;
  state.simSelectedResult=state.simResults.length?0:-1;const elapsed=formatElapsed(performance.now()-searchStartedAt);
- $('#simSearchStatus').innerHTML=capped?`<div class="sim-limit-note">50件に到達したため検索を打ち切りました。検索時間：${elapsed}（${nodes.toLocaleString()}探索パターン / 成立パターン ${matchedPatterns.toLocaleString()}）</div>`:`<div class="note">検索完了：${state.simResults.length}件（${nodes.toLocaleString()}探索パターン / 成立パターン ${matchedPatterns.toLocaleString()} / 検索時間：${elapsed}）</div>`;renderSimDemeritFilter();renderSimResults();persistAppState()
+ $('#simSearchStatus').innerHTML=state.simAdditionalCancelRequested?`<div class="note">検索中断：${state.simResults.length}件（検索時間：${elapsed}）</div>`:capped?`<div class="sim-limit-note">50件に到達したため検索を打ち切りました。検索時間：${elapsed}（${nodes.toLocaleString()}探索パターン / 成立パターン ${matchedPatterns.toLocaleString()}）</div>`:`<div class="note">検索完了：${state.simResults.length}件（${nodes.toLocaleString()}探索パターン / 成立パターン ${matchedPatterns.toLocaleString()} / 検索時間：${elapsed}）</div>`;renderSimDemeritFilter();renderSimResults();persistAppState()
 }
 function renderSimDemeritFilter(){
  const host=$('#simDemeritFilter');if(!host)return;
@@ -1072,18 +1085,71 @@ function renderSimDemeritFilter(){
  for(const result of state.simResults)for(const n of simDemeritNamesFromRelics(result.relics))names.add(n);
  const list=[...names].sort((a,b)=>a.localeCompare(b,'ja'));
  if(!list.length){host.innerHTML='';return}
- host.innerHTML=`<div class="sim-demerit-filter-box"><div class="sim-demerit-filter-head"><div><div class="sim-demerit-filter-title">検索結果に含まれるデメリット効果</div><div class="sim-demerit-filter-help">チェックした効果を含む構成を次回検索から除外します。検索条件を変更するまで選択状態を保持します。</div></div><div class="muted">除外：${selected.size}件</div></div><div class="sim-demerit-filter-grid">${list.map(n=>`<label class="sim-demerit-filter-item ${selected.has(n)?'selected':''}"><input type="checkbox" data-sim-demerit-exclude="${esc(n)}" ${selected.has(n)?'checked':''}><span>${esc(n)}</span></label>`).join('')}</div></div>`;
+ host.innerHTML=`<div class="sim-demerit-filter-box"><div class="sim-demerit-filter-head"><div><div class="sim-demerit-filter-title">検索結果に含まれるデメリット効果</div><div class="sim-demerit-filter-help">チェックした効果を含む構成を次回検索から除外します。追加スキル候補を表示中は自動で再検索します。検索条件を変更するまで選択状態を保持します。</div></div><div class="muted">除外：${selected.size}件</div></div><div class="sim-demerit-filter-grid">${list.map(n=>`<label class="sim-demerit-filter-item ${selected.has(n)?'selected':''}"><input type="checkbox" data-sim-demerit-exclude="${esc(n)}" ${selected.has(n)?'checked':''}><span>${esc(n)}</span></label>`).join('')}</div></div>`;
  document.querySelectorAll('[data-sim-demerit-exclude]').forEach(ch=>ch.onchange=()=>{
   const s=simDemeritFilterState(),name=ch.dataset.simDemeritExclude;
   if(ch.checked)s.names.add(name);else s.names.delete(name);
-  if(simActiveSearch!==null)simInvalidateSearch();
-  persistAppState();renderSimDemeritFilter()
+  simDemeritSelectionChanged()
  })
 }
 function simColorChip(c){const cls=c==='any'?' any':'';const color={red:'#ff4053',blue:'#3292ff',yellow:'#ffbd1d',green:'#14c875'}[c]||'';return `<span class="sim-color-chip${cls}" ${c==='any'?'':`style="background:${color}"`} title="${c}"></span>`}
 function simDemeritSummary(result){const names=[];for(const r of result.relics)for(const id of r.curses||[])names.push(effectName(id));if(!names.length)return '<span class="sim-no-demerit">デメリットなし</span>';const m=new Map();for(const n of names)m.set(n,(m.get(n)||0)+1);return [...m].map(([n,c])=>`${esc(n)}${c>1?` ×${c}`:''}`).join(' / ')}
-function renderSimResults(){if(!$('#simResultList'))return;$('#simResultCount').textContent=state.simResults.length?`(${state.simResults.length}件)`:'';if(!state.simResults.length){$('#simResultList').innerHTML='<div class="sim-empty">検索後に結果を表示します。</div>';$('#simResultDetail').innerHTML='<div class="sim-empty">左の検索結果を選択してください。</div>';return}$('#simResultList').innerHTML=state.simResults.map((r,i)=>`<button class="sim-result-item ${i===state.simSelectedResult?'active':''}" data-sim-result="${i}"><div class="sim-result-top"><span class="sim-vessel-name">${esc(r.vessel.name)}</span><span class="sim-color-row">${r.vessel.slots.slice(0,3).map(simColorChip).join('')}<span class="sim-divider"></span>${r.vessel.slots.slice(3).map(simColorChip).join('')}</span></div><div class="sim-demerits">${simDemeritSummary(r)}</div></button>`).join('');document.querySelectorAll('[data-sim-result]').forEach(b=>b.onclick=()=>{state.simSelectedResult=Number(b.dataset.simResult);renderSimResults()});renderSimDetail(state.simResults[state.simSelectedResult])}
-function renderSimDetail(result){if(!result){$('#simResultDetail').innerHTML='<div class="sim-empty">左の検索結果を選択してください。</div>';return}function card(r,i){const m=relicMeta(r.relicId);const effects=(r.effects||[]).map(id=>`<div>${esc(effectName(id))}</div>`).join('');const curses=(r.curses||[]).map(id=>`<div class="sim-detail-curse">${esc(effectName(id))}</div>`).join('');return `<div class="sim-detail-relic"><div class="sim-detail-head"><span class="dot" style="background:${COLOR_HEX[m.color]||'#999'}"></span><span class="sim-detail-name">Slot ${i%3+1}：${esc(m.name)}</span>${!m.known?'<span class="deep">判定不能（色・通常／深層）</span>':m.deep?'<span class="deep">深層</span>':''}</div><div class="sim-detail-effects">${effects}${curses}</div></div>`}$('#simResultDetail').innerHTML=`<div class="sim-detail-group"><div class="sim-detail-group-title">通常遺物</div>${result.relics.slice(0,3).map((r,i)=>card(r,i)).join('')}</div><div class="sim-detail-group"><div class="sim-detail-group-title">深層遺物</div>${result.relics.slice(3).map((r,i)=>card(r,i+3)).join('')}</div>`}
+function renderSimResults(){if(!$('#simResultList'))return;$('#simResultCount').textContent=state.simResults.length?`(${state.simResults.length}件)`:'';if(!state.simResults.length){$('#simResultList').innerHTML='<div class="sim-empty">検索後に結果を表示します。</div>';$('#simResultDetail').innerHTML='<div class="sim-empty">左の検索結果を選択してください。</div>';return}$('#simResultList').innerHTML=state.simResults.map((r,i)=>`<button class="sim-result-item ${i===state.simSelectedResult?'active':''} ${mySetSaved(r)?'is-saved':''}" data-sim-result="${i}"><div class="sim-result-top"><span class="sim-vessel-name">${esc(r.vessel.name)}${mySetSaved(r)?'<span class="saved-badge">保存済み</span>':''}</span><span class="sim-color-row">${r.vessel.slots.slice(0,3).map(simColorChip).join('')}<span class="sim-divider"></span>${r.vessel.slots.slice(3).map(simColorChip).join('')}</span></div><div class="sim-demerits">${simDemeritSummary(r)}</div></button>`).join('');document.querySelectorAll('[data-sim-result]').forEach(b=>b.onclick=()=>{state.simSelectedResult=Number(b.dataset.simResult);renderSimResults()});renderSimDetail(state.simResults[state.simSelectedResult])}
+const MYSETS_STORAGE_KEY='nightreign_relic_mysets_v1';
+let mySets=[],mySetSelectedId=null;
+function mySetProfile(){return {player:state.player,slot:state.slot};}
+function mySetRelicIdentity(r){return [r.ga,r.relicId,r.effects||[],r.curses||[]];}
+function mySetKey(result,hero=state.hero,profile=mySetProfile()){
+ return JSON.stringify([profile.player,profile.slot,hero,result.vessel.name,result.vessel.slots,result.relics.map(mySetRelicIdentity)]);
+}
+function mySetSaved(result){const k=mySetKey(result);return mySets.some(s=>s.key===k);}
+function writeMySets(next){
+ try{localStorage.setItem(MYSETS_STORAGE_KEY,JSON.stringify({v:1,sets:next}));mySets=next;return true;}
+ catch(e){console.warn('マイセット保存失敗',e);alert('マイセットを保存できませんでした。ブラウザの保存容量・設定を確認してください。');return false;}
+}
+function loadMySets(){
+ try{const d=JSON.parse(localStorage.getItem(MYSETS_STORAGE_KEY)||'null');if(d?.v===1&&Array.isArray(d.sets))mySets=d.sets.filter(s=>s&&typeof s.id==='string'&&typeof s.name==='string'&&s.profile&&Number.isInteger(s.hero)&&s.result?.vessel&&Array.isArray(s.result.vessel.slots)&&s.result.vessel.slots.length===6&&Array.isArray(s.result.relics)&&s.result.relics.length===6&&s.result.relics.every(r=>r&&Number.isInteger(r.relicId)&&Number.isInteger(r.ga)&&Array.isArray(r.effects)&&Array.isArray(r.curses))).map(s=>({...s,key:mySetKey(s.result,s.hero,s.profile)}));}
+ catch(e){console.warn('マイセット読込失敗',e);}
+}
+function saveCurrentMySet(){
+ const result=state.simResults[state.simSelectedResult];if(!result||mySetSaved(result))return;
+ const entry={id:crypto.randomUUID(),name:($('#mySetName')?.value||'').trim().slice(0,80)||`${HERO_NAMES[state.hero]||'キャラクター'} / ${result.vessel.name}`,hero:state.hero,profile:mySetProfile(),createdAt:new Date().toISOString(),result:JSON.parse(JSON.stringify(result)),key:mySetKey(result)};
+ if(writeMySets([...mySets,entry])){mySetSelectedId=entry.id;renderSimResults();renderMySets();}
+}
+function moveMySet(id,delta){const next=[...mySets],i=next.findIndex(s=>s.id===id),j=i+delta;if(i<0||j<0||j>=next.length)return;[next[i],next[j]]=[next[j],next[i]];if(writeMySets(next))renderMySets();}
+function deleteMySet(id){if(writeMySets(mySets.filter(s=>s.id!==id))){if(mySetSelectedId===id)mySetSelectedId=null;renderMySets();renderSimResults();}}
+function mySetMissingCount(s){if(s.profile.player!==state.player||s.profile.slot!==state.slot)return null;return s.result.relics.filter(r=>JSON.stringify(mySetRelicIdentity(state.relics.get(r.ga)||{}))!==JSON.stringify(mySetRelicIdentity(r))).length;}
+function renderMySets(){
+ const host=$('#mySetList');if(!host)return;
+ if(!mySets.length){host.innerHTML='<div class="sim-empty">保存した構成はありません。検索結果の「遺物構成を保存」から追加できます。</div>';$('#mySetDetail').innerHTML='';return;}
+ if(!mySets.some(s=>s.id===mySetSelectedId))mySetSelectedId=mySets[0].id;
+ host.innerHTML=mySets.map((s,i)=>`<article class="myset-row ${s.id===mySetSelectedId?'active':''}"><button class="myset-select" data-myset-select="${esc(s.id)}"><strong>${esc(s.name)}</strong><span>${esc(HERO_NAMES[s.hero]||'')} / ${esc(s.result.vessel.name)}</span><small>${esc(s.profile.player)} · セーブ枠 ${Number(s.profile.slot)+1}</small></button><div class="myset-actions"><button class="btn" data-myset-up="${esc(s.id)}" ${i===0?'disabled':''} aria-label="${esc(s.name)}を上へ">↑</button><button class="btn" data-myset-down="${esc(s.id)}" ${i===mySets.length-1?'disabled':''} aria-label="${esc(s.name)}を下へ">↓</button><button class="btn danger" data-myset-delete="${esc(s.id)}">削除</button></div></article>`).join('');
+ const selected=mySets.find(s=>s.id===mySetSelectedId),missing=mySetMissingCount(selected);
+ $('#mySetDetail').innerHTML=`<h3>${esc(selected.name)}</h3>${missing===null?'<p class="note">別のセーブ枠から保存した構成です。</p>':missing?`<p class="note">現在のセーブで一致する遺物を確認できない枠が${missing}個あります。保存時の構成を表示しています。</p>`:''}${simDetailHtml(selected.result,selected.hero)}`;
+ document.querySelectorAll('[data-myset-select]').forEach(b=>b.onclick=()=>{mySetSelectedId=b.dataset.mysetSelect;renderMySets();});
+ document.querySelectorAll('[data-myset-up]').forEach(b=>b.onclick=()=>moveMySet(b.dataset.mysetUp,-1));
+ document.querySelectorAll('[data-myset-down]').forEach(b=>b.onclick=()=>moveMySet(b.dataset.mysetDown,1));
+ document.querySelectorAll('[data-myset-delete]').forEach(b=>b.onclick=()=>{const s=mySets.find(s=>s.id===b.dataset.mysetDelete);if(s&&confirm(`「${s.name}」をマイセットから削除しますか？`))deleteMySet(s.id);});
+}
+function simDetailHtml(result,hero=state.hero){
+ const seen=new Set();
+ const labels={start_skill:'開始戦技',start_affinity:'開始属性・状態異常',start_magic:'開始魔術・祈祷',weapon_find:'武器種発見'};
+ function card(r,i){const m=relicMeta(r.relicId);const effects=(r.effects||[]).map(id=>{
+  const rule=simRuleMasterForEffect(id,r),group=String(rule?.conflictGroup||'').toLowerCase();
+  if(rule?.ruleType!=='LEFTMOST_WINS'||!labels[group])return `<div>${esc(effectName(id))}</div>`;
+  const key=hero===6&&(group==='start_skill'||group==='start_magic')?'revenant_start':group,applied=!seen.has(key);seen.add(key);
+  return `<div class="priority-effect priority-${group} ${applied?'is-applied':'is-inactive'}"><span class="priority-label">${labels[group]} · ${applied?'適用':'左側優先で未適用'}</span>${esc(effectName(id))}</div>`;
+ }).join('');return `<div class="sim-detail-relic"><div class="sim-detail-head"><span class="dot" style="background:${COLOR_HEX[m.color]||'#999'}"></span><span class="sim-detail-name">Slot ${i%3+1}：${esc(m.name)}</span>${!m.known?'<span class="deep">判定不能</span>':m.deep?'<span class="deep">深層</span>':''}</div><div class="sim-detail-effects">${effects}${(r.curses||[]).map(id=>`<div class="sim-detail-curse">${esc(effectName(id))}</div>`).join('')}</div></div>`;}
+ return `<div class="sim-detail-group"><div class="sim-detail-group-title">通常遺物</div>${result.relics.slice(0,3).map((r,i)=>card(r,i)).join('')}</div><div class="sim-detail-group"><div class="sim-detail-group-title">深層遺物</div>${result.relics.slice(3).map((r,i)=>card(r,i+3)).join('')}</div>`;
+}
+function renderSimDetail(result){
+ const host=$('#simResultDetail');if(!result){host.innerHTML='<div class="sim-empty">左の検索結果を選択してください。</div>';return;}
+ const saved=mySetSaved(result);
+ host.innerHTML=`<div class="myset-save"><label>マイセット名<input id="mySetName" maxlength="80" placeholder="${esc(HERO_NAMES[state.hero]||'')} / ${esc(result.vessel.name)}"></label><button class="btn primary" id="saveMySetBtn" ${saved?'disabled':''}>${saved?'保存済み':'遺物構成を保存'}</button></div>${simDetailHtml(result)}`;
+ $('#saveMySetBtn').onclick=saveCurrentMySet;
+}
+
+
 function renderHeroes(){
   const counts=new Map();for(const p of state.presets)counts.set(p.heroId,(counts.get(p.heroId)||0)+1);
   const ids=[...counts.keys()].sort((a,b)=>a-b);
@@ -1135,6 +1201,8 @@ document.querySelectorAll('[data-app-tab]').forEach(btn=>btn.onclick=()=>{
   const tab=btn.dataset.appTab;
   $('#optimizerPanel').classList.toggle('hidden',tab!=='optimizer');
   $('#simulatorPanel').classList.toggle('hidden',tab!=='simulator');
+  $('#mysetsPanel').classList.toggle('hidden',tab!=='mysets');
+  if(tab==='mysets'){renderMySets();window.scrollTo({top:0,behavior:'instant'});}
   $('#optimizerStickyControls').classList.toggle('hidden',tab!=='optimizer');
   $('#simulatorStickyControls').classList.toggle('hidden',tab!=='simulator');
   if(tab==='simulator')renderSimulator();
@@ -1156,9 +1224,9 @@ function closeIgnoreModal(){
 $('#globalIgnoreBtn').onclick=()=>openIgnore('global');
 $('#simGlobalIgnoreBtn').onclick=()=>openIgnore('global');
 $('#simHeroIgnoreBtn').onclick=()=>{if(state.hero)openIgnore('hero')};
-$('#simSearchBtn').onclick=runSimulatorSearch;
-$('#simAdditionalSearchBtn').onclick=runSimulatorAdditionalSearch;
-$('#simAdditionalCancelBtn').onclick=()=>{if(simActiveSearch!=='additional')return;state.simAdditionalCancelRequested=true;simUpdateSearchButtons()};
+$('#simSearchBtn').onclick=()=>{if(simActiveSearch==='normal'){simRequestCancel('normal');return;}if(simActiveSearch)return;runSimulatorSearch();simScrollToOutput('normal');};
+$('#simAdditionalSearchBtn').onclick=()=>{if(simActiveSearch==='additional'){simRequestCancel('additional');return;}if(simActiveSearch)return;runSimulatorAdditionalSearch();simScrollToOutput('additional');};
+
 $('#heroIgnoreBtn').onclick=()=>{if(state.hero)openIgnore('hero')};
 $('#ignoreModalClose').onclick=closeIgnoreModal;
 $('#ignoreModal').onclick=e=>{if(e.target===$('#ignoreModal'))closeIgnoreModal()};
@@ -1166,7 +1234,9 @@ $('#ignoreSearch').oninput=renderIgnoreModal;
 document.querySelectorAll('[data-ignore-category]').forEach(b=>b.onclick=()=>{state.ignoreCategory=b.dataset.ignoreCategory;renderIgnoreModal()});
 $('#ignoreSelectedOnly').onclick=()=>{state.ignoreSelectedOnly=!state.ignoreSelectedOnly;renderIgnoreModal()};
 $('#ignoreClearBtn').onclick=()=>{if(state.ignoreMode==='global')state.globalIgnored.clear();else heroIgnoredSet(state.hero).clear();simIgnoreSettingsChanged();renderIgnoreModal();updateIgnoreButtons();renderPresets();if(state.selectedSlot>=0)renderCandidatePane(state.selectedSlot);renderSimulator();persistAppState()};
+loadMySets();
 restoreAppState();
+renderMySets();
 updateIgnoreButtons();
 window.addEventListener('pagehide',persistAppState);
 window.addEventListener('beforeunload',persistAppState);
