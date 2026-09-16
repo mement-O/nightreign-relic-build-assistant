@@ -98,7 +98,7 @@
   };
 
   let code=await loadParts([
-    './runtime-v23e/app.js.gz.b64'
+    './runtime-v23h/app.js.gz.b64'
   ],'app.js');
   code=code.replace(/\u0000/g,'\\0');
   const url=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
