@@ -64,7 +64,7 @@ function simBeginSearch(kind){
  simActiveSearch=kind;simUpdateSearchButtons();return simSearchRevision;
 }
 function simRequestCancel(kind){if(simActiveSearch!==kind)return;state.simAdditionalCancelRequested=true;simUpdateSearchButtons();}
-function simScrollToOutput(kind){requestAnimationFrame(()=>{const target=$(kind==='additional'?'#simAdditionalCandidates':'#simSearchStatus');if(!target)return;const offset=(document.querySelector('.sticky-shell')?.getBoundingClientRect().height||180)+12;window.scrollTo({top:Math.max(0,window.scrollY+target.getBoundingClientRect().top-offset),behavior:'smooth'});});}
+function simScrollToOutput(kind){requestAnimationFrame(()=>{const target=$('#simOutputStart');if(!target)return;const offset=(document.querySelector('.sticky-shell')?.getBoundingClientRect().height||180)+12;window.scrollTo({top:Math.max(0,window.scrollY+target.getBoundingClientRect().top-offset),behavior:'smooth'});});}
 function simDemeritSelectionChanged(){
  const refresh=state.simAdditionalCandidates.length>0||state.simAdditionalStats!==null||simActiveSearch==='additional'||simAdditionalRefreshTimer!==null;
  if(simActiveSearch!==null||refresh){const results=state.simResults,selected=state.simSelectedResult;simInvalidateSearch();state.simResults=results;state.simSelectedResult=selected;renderSimResults();}
