@@ -1151,7 +1151,8 @@ function simResultBenefits(all=false){
    items.get(key).count++;
   }
  }
- return [...items.values()].sort((a,b)=>a.order-b.order||a.label.localeCompare(b.label,'ja'));
+ const groupOrder=new Map((window.NR_GAME_FILTER_MASTER?.hierarchy||[]).flatMap(major=>major.groups.map(group=>group.label)).map((label,index)=>[label,index]));
+ return [...items.values()].sort((a,b)=>(groupOrder.get(a.category)??999)-(groupOrder.get(b.category)??999)||a.order-b.order||a.label.localeCompare(b.label,'ja'));
 }
 function simBenefitPreviewItems(){const displayed=simResultBenefits();if($('#simBenefitScope')?.value!=='all')return displayed;const counts=new Map(displayed.map(x=>[x.key,x.count]));return simResultBenefits(true).map(x=>({...x,count:counts.get(x.key)||0}));}
 function renderSimBenefitPreview(){
