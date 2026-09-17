@@ -262,3 +262,5 @@ header{display:flex;justify-content:space-between;gap:18px;align-items:flex-star
 #simBenefitPreviewList{list-style:none;padding:0;margin:0;max-height:48vh;overflow:auto;overscroll-behavior:contain}
 .benefit-preview-row{display:flex;justify-content:space-between;align-items:center;gap:16px;border-top:1px solid #303846;padding:12px 4px}.benefit-preview-category{color:#97a9bf;font-size:11px}.benefit-preview-count{white-space:nowrap;color:#b3c1d4;font-size:12px}.benefit-preview-required{display:inline-block;color:#8ebdff;font-size:11px;margin-top:5px}
 @media(max-width:600px){#simBenefitPreviewDialog{padding:14px}.benefit-preview-head h2{font-size:16px}.benefit-preview-tools{flex-direction:column}.benefit-preview-tools select{max-width:100%}}
+
+.benefit-preview-scope{display:flex;gap:12px;align-items:center;margin-top:16px}.benefit-preview-scope select{padding:8px;background:#10151c;color:inherit;border:1px solid #485369;border-radius:7px}.benefit-preview-count{white-space:normal;text-align:right;flex-shrink:0;max-width:140px}
