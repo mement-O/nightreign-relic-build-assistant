@@ -1129,7 +1129,41 @@ function renderSimDemeritFilter(){
 }
 function simColorChip(c){const cls=c==='any'?' any':'';const color={red:'#ff4053',blue:'#3292ff',yellow:'#ffbd1d',green:'#14c875'}[c]||'';return `<span class="sim-color-chip${cls}" ${c==='any'?'':`style="background:${color}"`} title="${c}"></span>`}
 function simDemeritSummary(result){const names=[];for(const r of result.relics)for(const id of r.curses||[])names.push(effectName(id));if(!names.length)return '<span class="sim-no-demerit">デメリットなし</span>';const m=new Map();for(const n of names)m.set(n,(m.get(n)||0)+1);return [...m].map(([n,c])=>`${esc(n)}${c>1?` ×${c}`:''}`).join(' / ')}
-function renderSimResults(){if(!$('#simResultList'))return;$('#simResultCount').textContent=state.simResults.length?`(${state.simResults.length}件)`:'';if(!state.simResults.length){$('#simResultList').innerHTML='<div class="sim-empty">検索後に結果を表示します。</div>';$('#simResultDetail').innerHTML='<div class="sim-empty">左の検索結果を選択してください。</div>';return}$('#simResultList').innerHTML=state.simResults.map((r,i)=>`<button class="sim-result-item ${i===state.simSelectedResult?'active':''} ${mySetSaved(r)?'is-saved':''}" data-sim-result="${i}"><div class="sim-result-top"><span class="sim-vessel-name">${esc(r.vessel.name)}${mySetSaved(r)?'<span class="saved-badge">保存済み</span>':''}</span><span class="sim-color-row">${r.vessel.slots.slice(0,3).map(simColorChip).join('')}<span class="sim-divider"></span>${r.vessel.slots.slice(3).map(simColorChip).join('')}</span></div><div class="sim-demerits">${simDemeritSummary(r)}</div></button>`).join('');document.querySelectorAll('[data-sim-result]').forEach(b=>b.onclick=()=>{state.simSelectedResult=Number(b.dataset.simResult);renderSimResults()});renderSimDetail(state.simResults[state.simSelectedResult])}
+function simResultBenefits(){
+ const items=new Map();
+ for(const result of state.simResults){const seen=new Set();
+  for(const {id,relic} of simEffectiveRecords(result.relics)){
+   const rule=simRuleMasterForEffect(id,relic),info=effectInfo(id);
+   if(rule&&(rule.ruleType==='DEMERIT'||String(rule.category).startsWith('demerit_')||(rule.character&&rule.character!==HERO_NAMES[state.hero])))continue;
+   const ranked=rule&&(rule.uiMode==='RANK_SUM'||rule.ruleType==='UNIQUE_LEVEL');
+   const key=rule?rule.masterKey+(ranked?`:rank:${info.level??0}`:''):`id:${id}`;
+   if(seen.has(key))continue;seen.add(key);
+   if(!items.has(key)){
+    let label=rule?simRuleName(rule):effectName(id);
+    if(ranked)label+=` ＋${info.level??0}`;
+    if(rule&&rule.normalAvailable!==rule.deepAvailable)label+=rule.deepAvailable?'（深層）':'（通常）';
+    items.set(key,{key,label,category:rule?.gameGroup||'その他',count:0,required:state.simConditions.has(simEffectKeyFor(id,relic)),order:rule?.displayOrder??99999});
+   }
+   items.get(key).count++;
+  }
+ }
+ return [...items.values()].sort((a,b)=>a.order-b.order||a.label.localeCompare(b.label,'ja'));
+}
+function renderSimBenefitPreview(){
+ const button=$('#simBenefitPreviewBtn');if(!button)return;
+ const items=simResultBenefits();button.disabled=!state.simResults.length;button.textContent=`メリット効果で絞り込む（${items.length}種類）`;
+ const select=$('#simBenefitCategory'),previous=select.value;
+ const categories=[...new Set(items.map(x=>x.category))];select.innerHTML='<option value="">すべての分類</option>'+categories.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');select.value=categories.includes(previous)?previous:'';
+ renderSimBenefitPreviewList(items);
+}
+function renderSimBenefitPreviewList(items=simResultBenefits()){
+ const query=normalizeEffectIdentity($('#simBenefitQuery').value),category=$('#simBenefitCategory').value;
+ const shown=items.filter(x=>(!category||x.category===category)&&(!query||normalizeEffectIdentity(x.label).includes(query)));
+ $('#simBenefitPreviewCount').textContent=`${shown.length} / ${items.length}種類 · 表示中の検索結果 ${state.simResults.length}件が対象`;
+ $('#simBenefitPreviewList').innerHTML=shown.length?shown.map(x=>`<li class="benefit-preview-row"><div><span class="benefit-preview-category">${esc(x.category)}</span><div>${esc(x.label)}</div>${x.required?'<span class="benefit-preview-required">検索条件に指定中</span>':''}</div><span class="benefit-preview-count">${x.count} / ${state.simResults.length}件</span></li>`).join(''):'<li class="sim-empty">該当するメリット効果はありません。</li>';
+}
+
+function renderSimResults(){renderSimBenefitPreview();if(!$('#simResultList'))return;$('#simResultCount').textContent=state.simResults.length?`(${state.simResults.length}件)`:'';if(!state.simResults.length){$('#simResultList').innerHTML='<div class="sim-empty">検索後に結果を表示します。</div>';$('#simResultDetail').innerHTML='<div class="sim-empty">左の検索結果を選択してください。</div>';return}$('#simResultList').innerHTML=state.simResults.map((r,i)=>`<button class="sim-result-item ${i===state.simSelectedResult?'active':''} ${mySetSaved(r)?'is-saved':''}" data-sim-result="${i}"><div class="sim-result-top"><span class="sim-vessel-name">${esc(r.vessel.name)}${mySetSaved(r)?'<span class="saved-badge">保存済み</span>':''}</span><span class="sim-color-row">${r.vessel.slots.slice(0,3).map(simColorChip).join('')}<span class="sim-divider"></span>${r.vessel.slots.slice(3).map(simColorChip).join('')}</span></div><div class="sim-demerits">${simDemeritSummary(r)}</div></button>`).join('');document.querySelectorAll('[data-sim-result]').forEach(b=>b.onclick=()=>{state.simSelectedResult=Number(b.dataset.simResult);renderSimResults()});renderSimDetail(state.simResults[state.simSelectedResult])}
 const MYSETS_STORAGE_KEY='nightreign_relic_mysets_v1';
 let mySets=[],mySetSelectedId=null;
 function mySetProfile(){return {player:state.player,slot:state.slot};}
@@ -1259,6 +1293,10 @@ function closeIgnoreModal(){
 $('#globalIgnoreBtn').onclick=()=>openIgnore('global');
 $('#simGlobalIgnoreBtn').onclick=()=>openIgnore('global');
 $('#simHeroIgnoreBtn').onclick=()=>{if(state.hero)openIgnore('hero')};
+$('#simBenefitPreviewBtn').onclick=()=>{renderSimBenefitPreview();$('#simBenefitPreviewDialog').showModal();};
+$('#simBenefitPreviewClose').onclick=()=>$('#simBenefitPreviewDialog').close();
+$('#simBenefitQuery').oninput=()=>renderSimBenefitPreviewList();
+$('#simBenefitCategory').onchange=()=>renderSimBenefitPreviewList();
 $('#simSearchBtn').onclick=()=>{if(simActiveSearch==='normal'){simRequestCancel('normal');return;}if(simActiveSearch)return;runSimulatorSearch();simScrollToOutput('normal');};
 $('#simAdditionalSearchBtn').onclick=()=>{if(simActiveSearch==='additional'){simRequestCancel('additional');return;}if(simActiveSearch)return;runSimulatorAdditionalSearch();simScrollToOutput('additional');};
 
