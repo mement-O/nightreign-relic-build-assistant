@@ -176,8 +176,42 @@ function getIgnoreAliasMap(){
 function effectIgnoreKey(e){if(e.group)return `g:${e.group}`;return `n:${normalizeEffectIdentity(ignoreBaseLabel(e.name))}`}
 function activeIgnoredKeys(){return new Set([...state.globalIgnored,...(state.hero?heroIgnoredSet(state.hero):[])])}
 function isEffectIgnored(id,keys=activeIgnoredKeys()){return keys.has(effectIgnoreKey(effectInfo(id)))}
-function comparableRelic(ga){const r=state.relics.get(ga);if(!r)return null;const m=relicMeta(r.relicId);if(!m.known)return null;return {...r,name:m.name,color:m.color,deep:m.deep,effectInfos:(r.effects||[]).map(effectInfo),curseInfos:(r.curses||[]).map(effectInfo)}}
-function effectCanCover(a,b){if(a.id===b.id)return {ok:true,kind:'same'};if(a.group&&b.group&&a.group===b.group&&a.level!=null&&b.level!=null&&b.level>=a.level)return {ok:true,kind:b.level>a.level?'up':'same'};return {ok:false}}
+function comparableRelic(ga){const r=state.relics.get(ga);if(!r)return null;const m=relicMeta(r.relicId);if(!m.known)return null;return {...r,name:m.name,color:m.color,deep:m.deep,effectInfos:(r.effects||[]).map(id=>({...effectInfo(id),optimizerDeep:m.deep})),curseInfos:(r.curses||[]).map(effectInfo)}}
+function optimizerRule(e){
+ const rules=(EFFECT_RULES_BY_ID.get(Number(e.id))||[]).filter(r=>e.optimizerDeep===undefined?true:e.optimizerDeep?r.deepAvailable:r.normalAvailable);
+ return rules.length===1?rules[0]:null;
+}
+function effectCanCover(a,b){
+ if(a.id===b.id)return {ok:true,kind:'same'};
+ const ar=optimizerRule(a),br=optimizerRule(b);
+ if(!ar||!br||ar.masterKey!==br.masterKey)return {ok:false};
+ if(ar.uiMode==='RANK_SUM'||ar.ruleType==='UNIQUE_LEVEL'){
+  if(a.level==null||b.level==null||b.level<a.level)return {ok:false};
+  return {ok:true,kind:b.level>a.level?'up':'same'};
+ }
+ return {ok:true,kind:'same'};
+}
+// Resolve conflicts before ignoring effects: an ignored earlier effect can still
+// suppress a later effect that the user wants to preserve.
+function optimizerCompositionMeasures(relics,hero,ignored){
+ const measures=new Map(),seen=new Set();
+ for(const r of relics){if(!r)continue;const meta=relicMeta(r.relicId);
+  for(const id of r.effects||[]){const e={...effectInfo(id),optimizerDeep:meta.deep},rule=meta.known?optimizerRule(e):null;
+   if(rule?.ruleType==='LEFTMOST_WINS'&&rule.conflictGroup){let conflict=rule.conflictGroup;if(hero===6&&(conflict==='START_SKILL'||conflict==='START_MAGIC'))conflict='REVENANT_START';if(seen.has(conflict))continue;seen.add(conflict);}
+   if(ignored.has(effectIgnoreKey(e)))continue;
+   let key=rule?rule.masterKey:`id:${id}`,value=1,add=false;
+   if(rule?.ruleType==='UNIQUE_LEVEL')key+=`:level:${e.level??0}`;
+   else if(rule?.ruleType==='ADDITIVE'){
+    add=true;if(rule.uiMode==='RANK_SUM')value=(e.level??0)+(rule.zeroBasedRank?1:0);
+   }
+   const old=measures.get(key);measures.set(key,{value:add?(old?.value||0)+value:Math.max(old?.value||0,value),present:true});
+  }
+ }
+ return measures;
+}
+function optimizerPreservesComposition(before,after){
+ for(const [key,m] of before){const next=after.get(key);if(!next||next.value<m.value)return false;}return true;
+}
 function findMatching(aList,bList){
   const used=new Set(),pairs=[];
   function rec(i){if(i===aList.length)return true;for(let j=0;j<bList.length;j++){if(used.has(j))continue;const c=effectCanCover(aList[i],bList[j]);if(c.ok){used.add(j);pairs.push({ai:i,bj:j,kind:c.kind});if(rec(i+1))return true;pairs.pop();used.delete(j)}}return false}
@@ -200,8 +234,9 @@ function workingState(p){const k=presetKey(p);if(!state.workingPresets.has(k))st
 function currentPreset(){const list=getHeroPresetList();return list[state.currentPresetPos]||null}
 function getCandidatesFor(p,slotIndex){
   const w=workingState(p),baseGa=w.original[slotIndex],base=comparableRelic(baseGa);if(!base)return [];
-  const ignored=activeIgnoredKeys(),out=[];
-  for(const [ga] of state.relics){const cand=comparableRelic(ga);const rel=improvementRelation(base,cand,ignored);if(rel)out.push({ga,relic:cand,rel})}
+  const ignored=activeIgnoredKeys(),out=[],current=w.current.map(ga=>state.relics.get(ga));
+  const before=optimizerCompositionMeasures(current,p.heroId,ignored);
+  for(const [ga] of state.relics){const cand=comparableRelic(ga);const rel=improvementRelation(base,cand,ignored);if(rel){const after=[...current];after[slotIndex]=cand;if(optimizerPreservesComposition(before,optimizerCompositionMeasures(after,p.heroId,ignored)))out.push({ga,relic:cand,rel})}}
   out.sort((a,b)=>(Number(b.rel.safeCurse)-Number(a.rel.safeCurse))||((b.relic.effects?.length||0)-(a.relic.effects?.length||0))||((b.relic.acquisition||0)-(a.relic.acquisition||0)));
   return out
 }
