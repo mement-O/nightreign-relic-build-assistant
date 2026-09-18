@@ -2,8 +2,8 @@
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none';">
 <title>Nightreign Relic Build Assistant</title>
-<meta name="app-version" content="1.0.0-ja">
-<link rel="stylesheet" href="./assets/styles.css?v=1.0.0-ja"></head><body><div class="wrap"><div class="sticky-shell"><div class="app-header"><header><div><h1>Nightreign Relic Build Assistant <span class="rid">日本語版 v1.0.0</span></h1><p>所持遺物から構成を検索し、プリセットの改善やマイセットの保存ができます。セーブへの書き込みや外部送信は行いません。</p></div><div><button class="btn primary" id="importBtn">セーブを読み込む</button><input class="hidden" id="fileInput" type="file" accept=".sl2,.co2,application/octet-stream"></div></header><div class="status"><span class="pill" id="saveStatus">セーブ未読込</span><span class="pill" id="playerStatus"></span><span class="pill" id="presetStatus"></span></div></div><div id="relicMetadataNotice" role="status" hidden style="padding:8px 12px;color:#ffd37a;overflow-wrap:anywhere"></div><div class="app-tabs"><button class="app-tab active" data-app-tab="optimizer">プリセット最適化</button><button class="app-tab" data-app-tab="simulator">遺物編成シミュレーター</button><button class="app-tab" data-app-tab="mysets">マイセット</button></div><div class="sticky-controls">
+<meta name="app-version" content="1.0.1-ja">
+<link rel="stylesheet" href="./assets/styles.css?v=1.0.1-ja"></head><body><div class="wrap"><div class="sticky-shell"><div class="app-header"><header><div><h1>Nightreign Relic Build Assistant <span class="rid">日本語版 v1.0.1</span></h1><p>所持遺物から構成を検索し、プリセットの改善やマイセットの保存ができます。セーブへの書き込みや外部送信は行いません。</p></div><div><button class="btn primary" id="importBtn">セーブを読み込む</button><input class="hidden" id="fileInput" type="file" accept=".sl2,.co2,application/octet-stream"></div></header><div class="status"><span class="pill" id="saveStatus">セーブ未読込</span><span class="pill" id="playerStatus"></span><span class="pill" id="presetStatus"></span></div></div><div id="relicMetadataNotice" role="status" hidden style="padding:8px 12px;color:#ffd37a;overflow-wrap:anywhere"></div><div class="app-tabs"><button class="app-tab active" data-app-tab="optimizer">プリセット最適化</button><button class="app-tab" data-app-tab="simulator">遺物編成シミュレーター</button><button class="app-tab" data-app-tab="mysets">マイセット</button></div><div class="sticky-controls">
 <div id="optimizerStickyControls"><div class="hero-header"><div class="hero-header-top"><div class="hero-header-title">キャラクター</div><div class="header-filter-actions"><button class="btn filter-btn" id="globalIgnoreBtn">全キャラクター共通：評価対象外 <span id="globalIgnoreCount">(0)</span></button><button class="btn filter-btn" id="heroIgnoreBtn" disabled>キャラクター個別：評価対象外 <span id="heroIgnoreCount">(0)</span></button></div></div><div id="heroList" class="hero-list"><div class="muted">セーブ読込後に表示します。</div></div></div></div>
 <div id="simulatorStickyControls" class="hidden"><div class="sim-controls sim-controls-split"><div class="sim-header-left"><div class="hero-header-title">キャラクター</div><div id="simHeroList" class="hero-list"><div class="muted">セーブ読込後に表示します。</div></div></div><div class="sim-sticky-right"><div class="sim-filter-actions"><button class="btn filter-btn" id="simGlobalIgnoreBtn">全キャラクター共通：評価対象外 <span id="simGlobalIgnoreCount">(0)</span></button><button class="btn filter-btn" id="simHeroIgnoreBtn" disabled>キャラクター個別：評価対象外 <span id="simHeroIgnoreCount">(0)</span></button></div><div class="sim-header-search-actions"><select id="simSearchMode" aria-label="検索モード"><option value="50">高速検索：50件</option><option value="100">高速検索：100件</option><option value="all">全件検索</option></select><button class="btn" id="simAdditionalSearchBtn" disabled>追加スキル検索</button><button class="btn primary" id="simSearchBtn" disabled>検索</button></div></div></div></div>
 </div></div><div id="stickySpacer" class="sticky-spacer" aria-hidden="true"></div><div id="optimizerPanel" class="tab-panel">
@@ -45,4 +45,53 @@
 <div class="effect-panel-tools"><input id="ignoreSearch" class="filter-search" placeholder="評価対象外とする効果を検索"><button class="selected-only-btn" id="ignoreSelectedOnly">選択中のみ表示</button></div>
 <div id="ignoreEffectList" class="effect-list"></div>
 <div class="modal-foot"><span id="ignoreModalNote" class="muted"></span><button class="btn" id="ignoreClearBtn">すべて解除</button></div>
-</div></div><section id="mysetsPanel" class="tab-panel hidden"><div class="sim-section"><h2>マイセット</h2><p class="sim-help">保存した構成はこのブラウザに保持されます。↑・↓で順序を変更できます。</p><div class="sim-results"><section class="sim-result-list"><div id="mySetList"></div></section><section class="sim-result-detail"><div id="mySetDetail" class="sim-detail-body"></div></section></div></div></section><dialog id="simBenefitPreviewDialog" aria-labelledby="simBenefitPreviewTitle"><div class="benefit-preview-head"><h2 id="simBenefitPreviewTitle">メリット効果の除外候補</h2><button class="btn" id="simBenefitPreviewClose">閉じる</button></div><p class="sim-help">チェックした効果が実際に有効な構成を除外します。「適用して再検索」でまとめて反映します。検索条件に指定済みの効果枠は表示しません。件数は取得した全ページの結果から集計します。ランクは各遺物に付く値です。</p><div class="benefit-preview-tools"><input id="simBenefitQuery" class="filter-search" type="search" aria-label="メリット効果名を検索" placeholder="効果名を検索"><select id="simBenefitCategory" aria-label="メリット効果の分類"><option value="">すべての分類</option></select></div><p id="simBenefitPreviewCount" class="muted"></p><ul id="simBenefitPreviewList"></ul><div class="benefit-preview-actions"><button class="btn" id="simBenefitClear">除外をすべて解除</button><button class="btn primary" id="simBenefitApply">適用して再検索</button></div></dialog><script src="./assets/ui.js?v=1.0.0-ja"></script><script src="./assets/app.js?v=1.0.0-ja"></script></body></html>
+</div></div><section id="mysetsPanel" class="tab-panel hidden"><div class="sim-section"><h2>マイセット</h2><p class="sim-help">保存した構成はこのブラウザに保持されます。↑・↓で順序を変更できます。</p><div class="sim-results"><section class="sim-result-list"><div id="mySetList"></div></section><section class="sim-result-detail"><div id="mySetDetail" class="sim-detail-body"></div></section></div></div></section><dialog id="simBenefitPreviewDialog" aria-labelledby="simBenefitPreviewTitle"><div class="benefit-preview-head"><h2 id="simBenefitPreviewTitle">メリット効果の除外候補</h2><button class="btn" id="simBenefitPreviewClose">閉じる</button></div><p class="sim-help">チェックした効果が実際に有効な構成を除外します。「適用して再検索」でまとめて反映します。検索条件に指定済みの効果枠は表示しません。件数は取得した全ページの結果から集計します。ランクは各遺物に付く値です。</p><div class="benefit-preview-tools"><input id="simBenefitQuery" class="filter-search" type="search" aria-label="メリット効果名を検索" placeholder="効果名を検索"><select id="simBenefitCategory" aria-label="メリット効果の分類"><option value="">すべての分類</option></select></div><p id="simBenefitPreviewCount" class="muted"></p><ul id="simBenefitPreviewList"></ul><div class="benefit-preview-actions"><button class="btn" id="simBenefitClear">除外をすべて解除</button><button class="btn primary" id="simBenefitApply">適用して再検索</button></div></dialog><footer class="third-party-notices" id="thirdPartyNotices"><details><summary>参考情報・ライセンス（Third-Party Notices）</summary><p>本ツールはELDEN RING NIGHTREIGNの非公式ツールです。FromSoftware／Bandai Namco Entertainmentおよび参照元プロジェクトによる公式提供・承認を示すものではありません。</p><h3><a href="https://github.com/mement-O/nightreign-relic-organizer" target="_blank" rel="noopener noreferrer">Nightreign Relic Organizer</a></h3><p>Build Assistantへ引き継いだセーブ読込・解析や効果整理の基盤。以下のMIT表示はOrganizer由来部分に適用されます。</p><details><summary>MITライセンス全文</summary><pre>MIT License
+
+Copyright (c) 2026 mement-O
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the &quot;Software&quot;), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</pre></details><h3><a href="https://github.com/alfizari/Elden-Ring-Nightreign-Save-Editor" target="_blank" rel="noopener noreferrer">Elden Ring Nightreign Save Editor</a></h3><p>セーブデータ構造、BND4／AES-CBCを用いるセーブ解析、遺物・効果パラメータ、日本語名称、Vessel／Preset構造の参照元。EquipParamAntique.csvとAttachEffectParam.csvによるマスタ補正にも使用しています。</p><details><summary>MITライセンス全文</summary><pre>MIT License
+
+Copyright (c) 2024 Ahmed
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the &quot;Software&quot;), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</pre></details><h3><a href="https://github.com/metinc/nightreign-relic-browser" target="_blank" rel="noopener noreferrer">nightreign-relic-browser</a></h3><p>Organizerから引き継いだEffectGroup／level整理の参照元。現行マスタにはBuild Assistantでの修正も含みます。</p><details><summary>MITライセンス全文</summary><pre>Copyright 2025 Metin Çelik
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+</pre></details><h3>ゲーム内カテゴリ分類</h3><p><a href="https://kamikouryaku.net/nightreign_eldenring/?%E9%81%BA%E7%89%A9%E5%8A%B9%E6%9E%9C" target="_blank" rel="noopener noreferrer">神攻略Wiki「遺物効果」</a>の分類を参考にしています。Wikiとゲーム由来の名称・情報に、上記ソフトウェアのMITライセンスを適用する趣旨ではありません。</p><p>出典・確認時の版は<a href="./THIRD_PARTY_NOTICES.md">第三者表示の記録</a>、マスタの変更根拠は<a href="./docs/data-sources.md">データ出典</a>に記載しています。</p></details></footer><script src="./assets/ui.js?v=1.0.1-ja"></script><script src="./assets/app.js?v=1.0.1-ja"></script></body></html>

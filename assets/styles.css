@@ -269,3 +269,5 @@ header{display:flex;justify-content:space-between;gap:18px;align-items:flex-star
 
 .usage-guide{margin:12px 0;padding:12px 16px;background:#151b23;border:1px solid #303947;border-radius:10px;color:#bdc9da}.usage-guide summary{cursor:pointer;font-weight:600}.usage-guide li{margin:8px 0;line-height:1.6}
 #importBtn{white-space:nowrap}.status .pill:empty{display:none}
+
+.third-party-notices{margin:24px;padding:16px;border:1px solid #303947;border-radius:10px;background:#151b23;color:#bdc9da;font-size:12px;line-height:1.65}.third-party-notices summary{cursor:pointer;font-weight:600}.third-party-notices a{color:#9dbdff}.third-party-notices pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;background:#10141b;border-radius:6px}.third-party-notices h3{margin-top:18px}

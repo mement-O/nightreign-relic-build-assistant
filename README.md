@@ -1,6 +1,6 @@
 # Nightreign Relic Build Assistant
 
-日本語版 v1.0.0。PC版セーブの所持遺物から、プリセット最適化・遺物編成検索・追加スキル検索を行うブラウザツールです。
+日本語版 v1.0.1。PC版セーブの所持遺物から、プリセット最適化・遺物編成検索・追加スキル検索を行うブラウザツールです。
 
 [ツールを開く](https://mement-o.github.io/nightreign-relic-build-assistant/)
 
@@ -48,4 +48,8 @@
 HTTPサーバーで配信してください。`file://`ではJSON読込が動作しません。公開先はGitHub Pagesです。
 v24で旧圧縮分割ファイルや起動時のマスタ補正を統合しました。今後は現行JSONを直接編集します。
 
-日本語版の固定基準は `release/japanese-v1.0.0` ブランチです。多言語化は別の変更として進めます。旧版はGit履歴から復元でき、整備直前は `80f38f70dc6949d5f76d81e042bf525d860c1f1f`（v26）、旧ファイル整理前は `f937993a18b62f1dafae15b65a7695bda6f8274e`（v23h）です。
+日本語版の固定基準は `release/japanese-v1.0.1` ブランチです。多言語化は別の変更として進めます。旧版はGit履歴から復元でき、整備直前は `80f38f70dc6949d5f76d81e042bf525d860c1f1f`（v26）、旧ファイル整理前は `f937993a18b62f1dafae15b65a7695bda6f8274e`（v23h）です。
+
+## 参考情報・ライセンス
+
+セーブ解析・効果データ等の流用元と参照元、著作権表示、MITライセンス全文は [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) とアプリ下部の「参考情報・ライセンス」に記載しています。Organizer由来部分、Nightreign Save Editor、nightreign-relic-browser、神攻略Wikiの分類参照を含みます。
