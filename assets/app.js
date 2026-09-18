@@ -11,7 +11,11 @@ const EMPTY=0xffffffff, RELIC_TYPE=0xC0000000, WEAPON_TYPE=0x80000000, ARMOR_TYP
 const AES_KEY=new Uint8Array([0x18,0xf6,0x32,0x66,0x05,0xbd,0x17,0x8a,0x55,0x24,0x52,0x3a,0xc0,0xa0,0xc6,0x09]);
 
 
-const state={player:'',slot:-1,saveName:'',relics:new Map(),presets:[],hero:0,globalIgnored:new Set(),heroIgnored:new Map(),ignoreMode:'global',ignoreCategory:'all',ignoreSelectedOnly:false,selectedGa:0,selectedSlot:-1,currentPresetPos:0,workingPresets:new Map(),simConditionsByHero:new Map(),simConditions:new Map(),simDemeritExclusionsByHero:new Map(),simAdditionalCandidates:[],simAdditionalStats:null,simAdditionalCancelRequested:false,simResults:[],simSelectedResult:-1};
+const state={player:'',slot:-1,saveName:'',relics:new Map(),presets:[],hero:0,globalIgnored:new Set(),heroIgnored:new Map(),ignoreMode:'global',ignoreCategory:'all',ignoreSelectedOnly:false,selectedGa:0,selectedSlot:-1,currentPresetPos:0,workingPresets:new Map(),simConditionsByHero:new Map(),simConditions:new Map(),simDemeritExclusionsByHero:new Map(),simBenefitExclusionsByHero:new Map(),simSearchMode:"50",simResultPage:0,simAdditionalCandidates:[],simAdditionalStats:null,simAdditionalCancelRequested:false,simResults:[],simSelectedResult:-1};
+let simBenefitDraft=null,simBenefitSearchExclusions=null;
+function simBenefitFilterState(){const h=Number(state.hero)||0,sig=simConditionSignature();let s=state.simBenefitExclusionsByHero.get(h);if(!s||s.signature!==sig){s={signature:sig,items:new Map()};state.simBenefitExclusionsByHero.set(h,s)}return s.items;}
+function simBenefitIdentity(id,relic){const rule=simRuleMasterForEffect(id,relic);if(!rule)return null;const ranked=rule.uiMode==='RANK_SUM'||rule.ruleType==='UNIQUE_LEVEL';return rule.masterKey+(ranked?':rank:'+(effectInfo(id).level??0):'')+':scope:'+(relicMeta(relic.relicId).deep?'deep':'normal');}
+function simHasExcludedBenefit(relics){const excluded=simBenefitSearchExclusions||simBenefitFilterState();return excluded.size>0&&simEffectiveRecords(relics).some(({id,relic})=>excluded.has(simBenefitIdentity(id,relic)));}
 function simConditionSignature(map=state.simConditions){
  return JSON.stringify([...map.entries()].sort((a,b)=>String(a[0]).localeCompare(String(b[0]))).map(([k,c])=>[k,c?.rule??'',c?.value??null]))
 }
@@ -44,7 +48,7 @@ function activateSimConditionsForHero(hero=state.hero){
 let simSearchRevision=0,simActiveSearch=null,simAdditionalRefreshTimer=null;
 function simInvalidateSearch(){
  if(simAdditionalRefreshTimer!==null){clearTimeout(simAdditionalRefreshTimer);simAdditionalRefreshTimer=null;}
- simSearchRevision++;simActiveSearch=null;simSearchRankMetaCache=null;
+ simSearchRevision++;simBenefitSearchExclusions=null;simActiveSearch=null;simSearchRankMetaCache=null;
  state.simAdditionalCancelRequested=false;
  state.simResults=[];state.simSelectedResult=-1;state.simAdditionalCandidates=[];state.simAdditionalStats=null;
  if($('#simSearchStatus'))$('#simSearchStatus').innerHTML='';
@@ -52,6 +56,8 @@ function simInvalidateSearch(){
 }
 function simUpdateSearchButtons(){
  const busy=simActiveSearch!==null;
+ if($("#simBenefitPreviewBtn"))$("#simBenefitPreviewBtn").disabled=busy||(!state.simResults.length&&!simBenefitFilterState().size);
+ if($("#simSearchMode"))$("#simSearchMode").disabled=busy;if($("#simBenefitApply"))$("#simBenefitApply").disabled=busy;
  for(const [id,kind,label] of [['#simSearchBtn','normal','検索'],['#simAdditionalSearchBtn','additional','追加スキル検索']]){
   const b=$(id);if(!b)continue;const own=simActiveSearch===kind;
   b.disabled=!state.relics.size||(busy&&!own)||(own&&state.simAdditionalCancelRequested);
@@ -61,7 +67,7 @@ function simUpdateSearchButtons(){
 function simBeginSearch(kind){
  const previous=kind==='additional'?{results:state.simResults,selected:state.simSelectedResult}:null;
  simInvalidateSearch();if(previous){state.simResults=previous.results;state.simSelectedResult=previous.selected;renderSimResults();}
- simActiveSearch=kind;simUpdateSearchButtons();return simSearchRevision;
+ simBenefitSearchExclusions=new Map(simBenefitFilterState());simActiveSearch=kind;simUpdateSearchButtons();return simSearchRevision;
 }
 function simRequestCancel(kind){if(simActiveSearch!==kind)return;state.simAdditionalCancelRequested=true;simUpdateSearchButtons();}
 function simScrollToOutput(kind){requestAnimationFrame(()=>{const target=$('#simOutputStart');if(!target)return;const offset=(document.querySelector('.sticky-shell')?.getBoundingClientRect().height||180)+12;window.scrollTo({top:Math.max(0,window.scrollY+target.getBoundingClientRect().top-offset),behavior:'smooth'});});}
@@ -71,7 +77,7 @@ function simDemeritSelectionChanged(){
  persistAppState();renderSimDemeritFilter();
  if(refresh){const revision=simSearchRevision;simAdditionalRefreshTimer=setTimeout(()=>{simAdditionalRefreshTimer=null;if(revision===simSearchRevision&&state.simConditions.size)runSimulatorAdditionalSearch();},150);}
 }
-function simFinishSearch(revision){if(revision!==simSearchRevision)return;simActiveSearch=null;simSearchRankMetaCache=null;simUpdateSearchButtons();}
+function simFinishSearch(revision){if(revision!==simSearchRevision)return;simActiveSearch=null;simBenefitSearchExclusions=null;simSearchRankMetaCache=null;simUpdateSearchButtons();}
 
 function removeIgnoredSimConditions(){
  for(const [hero,conditions] of state.simConditionsByHero){
@@ -96,7 +102,7 @@ const STORAGE_KEY='nightreign_relic_build_assistant_phase2_v2';
 function persistAppState(){
   try{
     const data={
-      v:4,
+      v:4,simSearchMode:state.simSearchMode,simBenefitExclusionsByHero:[...state.simBenefitExclusionsByHero].map(([h,s])=>[h,{signature:s.signature,items:[...s.items]}]),
       saveName:state.saveName||'',player:state.player||'',slot:state.slot,hero:state.hero||0,currentPresetPos:state.currentPresetPos||0,
       relics:[...state.relics.entries()],
       presets:state.presets.map(p=>({...p,timestamp:p.timestamp!=null?String(p.timestamp):'0'})),
@@ -112,6 +118,8 @@ function restoreAppState(){
   try{
     const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return false;
     const d=JSON.parse(raw);if(!d||![2,3,4].includes(d.v))return false;
+    state.simSearchMode=['50','100','all'].includes(d.simSearchMode)?d.simSearchMode:'50';$('#simSearchMode').value=state.simSearchMode;
+    state.simBenefitExclusionsByHero=new Map((d.simBenefitExclusionsByHero||[]).map(([h,s])=>[Number(h),{signature:s.signature,items:new Map(s.items||[])}]));
     state.saveName=d.saveName||'';state.player=d.player||'';state.slot=Number.isInteger(d.slot)?d.slot:-1;
     state.relics=new Map(Array.isArray(d.relics)?d.relics:[]);
     state.presets=(Array.isArray(d.presets)?d.presets:[]).map(p=>({...p,timestamp:BigInt(p.timestamp||'0')}));
@@ -818,7 +826,7 @@ function simMaterializeGroupPattern(vessel,groups,limit){
    const relics=[...chosen];
    // Pattern search and actual relic expansion must use the identical exact-match rule.
    // This also guards future changes to rank aggregation / conflict handling.
-   if(simMatches(relics)&&!simHasExcludedDemerit(relics))out.push({vessel,relics});
+   if(simMatches(relics)&&!simHasExcludedDemerit(relics)&&!simHasExcludedBenefit(relics))out.push({vessel,relics});
    return
   }
   for(const relic of groups[depth].members){
@@ -941,7 +949,7 @@ async function simEnumerateActualForAdditional(groups,onComposition,progress){
    progress.actual++;
    // Share normal search's demerit rule before either new or upgrade collection.
    // Rejected compositions must not trigger the upgrade branch's early stop.
-   const res=simHasExcludedDemerit(chosen)?false:onComposition([...chosen]);
+   const res=(simHasExcludedDemerit(chosen)||simHasExcludedBenefit(chosen))?false:onComposition([...chosen]);
    if(res===true){stopped=true;return true}
    if((progress.actual&2047)===0&&performance.now()-progress.lastYield>30){
     progress.lastYield=performance.now();await new Promise(r=>setTimeout(r,0))
@@ -1066,10 +1074,33 @@ async function runSimulatorAdditionalSearch(){
   if(host)host.textContent=`中断 / ${patterns.toLocaleString()}探索パターン / ${progress.actual.toLocaleString()}実構成 / ${elapsed}`;
  }
 }
+async function simMaterializeGroupPatternAsync(vessel,groups,limit,revision){
+ let ticks=0;
+ const out=[],chosen=Array(6),used=new Set();
+ async function rec(depth){
+  if(state.simAdditionalCancelRequested||revision!==simSearchRevision)return;
+  if(++ticks%512===0){await new Promise(r=>setTimeout(r,0));if(state.simAdditionalCancelRequested||revision!==simSearchRevision)return;}
+  if(out.length>=limit||state.simAdditionalCancelRequested||revision!==simSearchRevision)return;
+  if(depth===6){
+   const relics=[...chosen];
+   // Pattern search and actual relic expansion must use the identical exact-match rule.
+   // This also guards future changes to rank aggregation / conflict handling.
+   if(simMatches(relics)&&!simHasExcludedDemerit(relics)&&!simHasExcludedBenefit(relics))out.push({vessel,relics});
+   return
+  }
+  for(const relic of groups[depth].members){
+   if(used.has(relic.ga))continue;
+   used.add(relic.ga);chosen[depth]=relic;await rec(depth+1);used.delete(relic.ga);
+   if(out.length>=limit)return
+  }
+ }
+ await rec(0);return out
+}
+
 async function runSimulatorSearch(){
  if(!state.relics.size)return;if(!state.simConditions.size){alert('検索する効果を1つ以上選択してください。');return}
- const searchRevision=simBeginSearch('normal');
- const searchStartedAt=performance.now();
+ const searchRevision=simBeginSearch('normal');state.simResultPage=0;const resultLimit=state.simSearchMode==='all'?20000:Number(state.simSearchMode);
+ const searchStartedAt=performance.now();let timedOut=false;const safetyTimer=setTimeout(()=>{if(searchRevision===simSearchRevision){timedOut=true;state.simAdditionalCancelRequested=true;simUpdateSearchButtons();}},60000);
  const formatElapsed=ms=>{if(ms<1000)return `${Math.round(ms)}ms`;const s=ms/1000;if(s<60)return `${s.toFixed(s<10?2:1)}秒`;const m=Math.floor(s/60),rs=s-m*60;return `${m}分${rs.toFixed(1)}秒`};
  // v7で追加した+0始まりランク判定用メタ情報は、simCatalog()の全遺物走査を伴う。
  // 探索ノードごとに再生成すると極端に遅くなるため、検索1回につき1度だけ固定する。
@@ -1077,7 +1108,7 @@ async function runSimulatorSearch(){
  simUpdateSearchButtons();state.simResults=[];state.simSelectedResult=-1;
  $('#simSearchStatus').innerHTML='<div class="note">検索中… 0件（探索パターン 0 / 経過 0.00秒）</div>';renderSimDemeritFilter();renderSimResults();
  await new Promise(r=>setTimeout(r,0));
- if(searchRevision!==simSearchRevision)return;
+ if(searchRevision!==simSearchRevision){clearTimeout(safetyTimer);return;}
  const vessels=SIM_VESSELS[state.hero]||[],searchInfo=simBuildSearchInfo();let capped=false,nodes=0,lastYield=performance.now(),matchedPatterns=0;
  const measures=new Map(),seenConflicts=new Set(),chosenGroups=[];
  try{
@@ -1086,14 +1117,14 @@ async function runSimulatorSearch(){
    const bounds=simRemainingGroupBounds(groupPools);
    async function dfs(depth){
     if(searchRevision!==simSearchRevision||state.simAdditionalCancelRequested)return true;
-    if(state.simResults.length>=50){capped=true;return true}
+    if(state.simResults.length>=resultLimit){capped=true;return true}
     if(!simCanStillReach(measures,bounds,depth))return false;
     if(depth===6){
      if(simMeasureMatches(measures)){
       matchedPatterns++;
-      const actual=simMaterializeGroupPattern(vessel,chosenGroups,50-state.simResults.length);
-      if(actual.length)state.simResults.push(...actual);
-      if(state.simResults.length>=50){capped=true;return true}
+      const actual=await simMaterializeGroupPatternAsync(vessel,chosenGroups,resultLimit-state.simResults.length,searchRevision);
+      for(const result of actual)state.simResults.push(result);
+      if(state.simResults.length>=resultLimit){capped=true;return true}
      }
      return false
     }
@@ -1106,12 +1137,12 @@ async function runSimulatorSearch(){
     }
     return false
    }
-   if(await dfs(0)&&(state.simResults.length>=50||searchRevision!==simSearchRevision||state.simAdditionalCancelRequested))break outer
+   if(await dfs(0)&&(state.simResults.length>=resultLimit||searchRevision!==simSearchRevision||state.simAdditionalCancelRequested))break outer
   }
- }finally{simFinishSearch(searchRevision)}
+ }finally{clearTimeout(safetyTimer);simFinishSearch(searchRevision)}
  if(searchRevision!==simSearchRevision)return;
- state.simSelectedResult=state.simResults.length?0:-1;const elapsed=formatElapsed(performance.now()-searchStartedAt);
- $('#simSearchStatus').innerHTML=state.simAdditionalCancelRequested?`<div class="note">検索中断：${state.simResults.length}件（検索時間：${elapsed}）</div>`:capped?`<div class="sim-limit-note">50件に到達したため検索を打ち切りました。検索時間：${elapsed}（${nodes.toLocaleString()}探索パターン / 成立パターン ${matchedPatterns.toLocaleString()}）</div>`:`<div class="note">検索完了：${state.simResults.length}件（${nodes.toLocaleString()}探索パターン / 成立パターン ${matchedPatterns.toLocaleString()} / 検索時間：${elapsed}）</div>`;renderSimDemeritFilter();renderSimResults();persistAppState()
+ if(timedOut)$('#simSearchStatus').dataset.safetyStop='true';else delete $('#simSearchStatus').dataset.safetyStop;state.simSelectedResult=state.simResults.length?0:-1;const elapsed=formatElapsed(performance.now()-searchStartedAt);
+ $('#simSearchStatus').innerHTML=state.simAdditionalCancelRequested?`<div class="note">検索中断（全件未完了）：${state.simResults.length}件（検索時間：${elapsed}）</div>`:capped?`<div class="sim-limit-note">${state.simSearchMode==='all'?'安全上限2万件に到達しました（全件未完了）。':`${resultLimit}件で検索を打ち切りました。ほかにも結果がある可能性があります。`}検索時間：${elapsed}（${nodes.toLocaleString()}探索パターン / 成立パターン ${matchedPatterns.toLocaleString()}）</div>`:`<div class="note">検索完了：${state.simResults.length}件（${nodes.toLocaleString()}探索パターン / 成立パターン ${matchedPatterns.toLocaleString()} / 検索時間：${elapsed}）</div>`;if(timedOut)$('#simSearchStatus').innerHTML+='<div class="note">60秒の安全停止（全件未完了）</div>';renderSimDemeritFilter();renderSimResults();persistAppState()
 }
 function renderSimDemeritFilter(){
  const host=$('#simDemeritFilter');if(!host)return;
@@ -1129,23 +1160,23 @@ function renderSimDemeritFilter(){
 }
 function simColorChip(c){const cls=c==='any'?' any':'';const color={red:'#ff4053',blue:'#3292ff',yellow:'#ffbd1d',green:'#14c875'}[c]||'';return `<span class="sim-color-chip${cls}" ${c==='any'?'':`style="background:${color}"`} title="${c}"></span>`}
 function simDemeritSummary(result){const names=[];for(const r of result.relics)for(const id of r.curses||[])names.push(effectName(id));if(!names.length)return '<span class="sim-no-demerit">デメリットなし</span>';const m=new Map();for(const n of names)m.set(n,(m.get(n)||0)+1);return [...m].map(([n,c])=>`${esc(n)}${c>1?` ×${c}`:''}`).join(' / ')}
-function simResultBenefits(all=false){
+function simResultBenefits(){
  const items=new Map();
  const catalog=simCatalog(),allowed=new Set(catalog.map(x=>x.master.masterKey));
  const selected=new Set(catalog.filter(x=>state.simConditions.has(x.key)).map(x=>x.master.masterKey));
- const sources=all?[{relics:[...state.relics.values()]}]:state.simResults;
+ const sources=state.simResults;
  for(const result of sources){const seen=new Set();
-  for(const {id,relic} of (all?result.relics.flatMap(relic=>(relic.effects||[]).map(id=>({id,relic}))):simEffectiveRecords(result.relics))){
+  for(const {id,relic} of simEffectiveRecords(result.relics)){
    const rule=simRuleMasterForEffect(id,relic),info=effectInfo(id);
    if(rule&&(rule.ruleType==='DEMERIT'||String(rule.category).startsWith('demerit_')||(rule.character&&rule.character!==HERO_NAMES[state.hero])))continue;
    if(!rule||!allowed.has(rule.masterKey)||selected.has(rule.masterKey))continue;
    const ranked=rule&&(rule.uiMode==='RANK_SUM'||rule.ruleType==='UNIQUE_LEVEL');
-   const key=rule?rule.masterKey+(ranked?`:rank:${info.level??0}`:''):`id:${id}`;
+   const key=simBenefitIdentity(id,relic);
    if(seen.has(key))continue;seen.add(key);
    if(!items.has(key)){
     let label=rule?simRuleName(rule):effectName(id);
     if(ranked)label+=` ＋${info.level??0}`;
-    if(rule&&rule.normalAvailable!==rule.deepAvailable)label+=rule.deepAvailable?'（深層）':'（通常）';
+    label+=relicMeta(relic.relicId).deep?'（深層）':'（通常）';
     items.set(key,{key,label,category:rule?.gameGroup||'その他',count:0,required:state.simConditions.has(simEffectKeyFor(id,relic)),order:rule?.displayOrder??99999});
    }
    items.get(key).count++;
@@ -1154,22 +1185,11 @@ function simResultBenefits(all=false){
  const groupOrder=new Map((window.NR_GAME_FILTER_MASTER?.hierarchy||[]).flatMap(major=>major.groups.map(group=>group.label)).map((label,index)=>[label,index]));
  return [...items.values()].sort((a,b)=>(groupOrder.get(a.category)??999)-(groupOrder.get(b.category)??999)||a.order-b.order||a.label.localeCompare(b.label,'ja'));
 }
-function simBenefitPreviewItems(){const displayed=simResultBenefits();if($('#simBenefitScope')?.value!=='all')return displayed;const counts=new Map(displayed.map(x=>[x.key,x.count]));return simResultBenefits(true).map(x=>({...x,count:counts.get(x.key)||0}));}
-function renderSimBenefitPreview(){
- const button=$('#simBenefitPreviewBtn');if(!button)return;
- const items=simBenefitPreviewItems();button.disabled=!state.simResults.length;button.textContent=`メリット効果の除外候補を見る`;
- const select=$('#simBenefitCategory'),previous=select.value;
- const categories=[...new Set(items.map(x=>x.category))];select.innerHTML='<option value="">すべての分類</option>'+categories.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');select.value=categories.includes(previous)?previous:'';
- renderSimBenefitPreviewList(items);
-}
-function renderSimBenefitPreviewList(items=simBenefitPreviewItems()){
- const query=normalizeEffectIdentity($('#simBenefitQuery').value),category=$('#simBenefitCategory').value;
- const shown=items.filter(x=>(!category||x.category===category)&&(!query||normalizeEffectIdentity(x.label).includes(query)));
- $('#simBenefitPreviewCount').textContent=`${shown.length} / ${items.length}種類 · ${$('#simBenefitScope').value==='all'?'全対象':'表示中の結果'}（検索結果 ${state.simResults.length}件）`;
- $('#simBenefitPreviewList').innerHTML=shown.length?shown.map(x=>`<li class="benefit-preview-row"><div><span class="benefit-preview-category">${esc(x.category)}</span><div>${esc(x.label)}</div>${x.required?'<span class="benefit-preview-required">検索条件に指定中</span>':''}</div><span class="benefit-preview-count">${x.count?`${x.count} / ${state.simResults.length}件`:'表示中の結果にはなし'}</span></li>`).join(''):'<li class="sim-empty">該当するメリット効果はありません。</li>';
-}
+function simBenefitPreviewItems(){const items=new Map(simResultBenefits().map(x=>[x.key,x]));for(const [key,x] of simBenefitFilterState())if(!items.has(key))items.set(key,{...x,count:0});return [...items.values()].sort((a,b)=>Number(simBenefitFilterState().has(b.key))-Number(simBenefitFilterState().has(a.key)));}
+function renderSimBenefitPreview(){const items=simBenefitPreviewItems(),button=$('#simBenefitPreviewBtn');if(!button)return;button.disabled=(!state.simResults.length&&!simBenefitFilterState().size)||simActiveSearch!==null;button.textContent='メリット効果の除外候補を見る（除外 '+simBenefitFilterState().size+'種類）';const select=$('#simBenefitCategory'),previous=select.value;select.innerHTML='<option value="">すべての分類</option>'+[...new Set(items.map(x=>x.category))].map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');select.value=previous;renderSimBenefitPreviewList(items);}
+function renderSimBenefitPreviewList(items=simBenefitPreviewItems()){const draft=simBenefitDraft||simBenefitFilterState(),query=normalizeEffectIdentity($('#simBenefitQuery').value),category=$('#simBenefitCategory').value;const shown=items.filter(x=>(!category||x.category===category)&&(!query||normalizeEffectIdentity(x.label).includes(query)));$('#simBenefitPreviewCount').textContent=shown.length+' / '+items.length+'種類・取得した検索結果 '+state.simResults.length+'件・選択 '+draft.size+'種類';$('#simBenefitPreviewList').innerHTML=shown.map(x=>'<li class="benefit-preview-row"><label><input type="checkbox" data-benefit-key="'+esc(x.key)+'" '+(draft.has(x.key)?'checked':'')+'><span class="benefit-preview-category">'+esc(x.category)+'</span> '+esc(x.label)+(simBenefitFilterState().has(x.key)?'（除外中）':'')+'</label><span>'+x.count+' / '+state.simResults.length+'件</span></li>').join('')||'<li class="sim-empty">該当するメリット効果はありません。</li>';document.querySelectorAll('[data-benefit-key]').forEach(ch=>ch.onchange=()=>{const item=items.find(x=>x.key===ch.dataset.benefitKey);if(ch.checked)simBenefitDraft.set(item.key,item);else simBenefitDraft.delete(item.key);renderSimBenefitPreviewList();});}
 
-function renderSimResults(){renderSimBenefitPreview();if(!$('#simResultList'))return;$('#simResultCount').textContent=state.simResults.length?`(${state.simResults.length}件)`:'';if(!state.simResults.length){$('#simResultList').innerHTML='<div class="sim-empty">検索後に結果を表示します。</div>';$('#simResultDetail').innerHTML='<div class="sim-empty">左の検索結果を選択してください。</div>';return}$('#simResultList').innerHTML=state.simResults.map((r,i)=>`<button class="sim-result-item ${i===state.simSelectedResult?'active':''} ${mySetSaved(r)?'is-saved':''}" data-sim-result="${i}"><div class="sim-result-top"><span class="sim-vessel-name">${esc(r.vessel.name)}${mySetSaved(r)?'<span class="saved-badge">保存済み</span>':''}</span><span class="sim-color-row">${r.vessel.slots.slice(0,3).map(simColorChip).join('')}<span class="sim-divider"></span>${r.vessel.slots.slice(3).map(simColorChip).join('')}</span></div><div class="sim-demerits">${simDemeritSummary(r)}</div></button>`).join('');document.querySelectorAll('[data-sim-result]').forEach(b=>b.onclick=()=>{state.simSelectedResult=Number(b.dataset.simResult);renderSimResults()});renderSimDetail(state.simResults[state.simSelectedResult])}
+function renderSimResults(){const pages=Math.max(1,Math.ceil(state.simResults.length/50));state.simResultPage=Math.min(state.simResultPage,pages-1);$('#simResultPages').innerHTML='<button class="btn" id="simPagePrev" '+(!state.simResultPage?'disabled':'')+'>前へ</button> '+(state.simResultPage+1)+' / '+pages+'ページ <button class="btn" id="simPageNext" '+(state.simResultPage>=pages-1?'disabled':'')+'>次へ</button>';$('#simPagePrev').onclick=()=>{state.simResultPage--;renderSimResults()};$('#simPageNext').onclick=()=>{state.simResultPage++;renderSimResults()};renderSimBenefitPreview();if(!$('#simResultList'))return;$('#simResultCount').textContent=state.simResults.length?`(${state.simResults.length}件)`:'';if(!state.simResults.length){$('#simResultList').innerHTML='<div class="sim-empty">検索後に結果を表示します。</div>';$('#simResultDetail').innerHTML='<div class="sim-empty">左の検索結果を選択してください。</div>';return}$('#simResultList').innerHTML=state.simResults.slice(state.simResultPage*50,(state.simResultPage+1)*50).map((r,j)=>{const i=state.simResultPage*50+j;return `<button class="sim-result-item ${i===state.simSelectedResult?'active':''} ${mySetSaved(r)?'is-saved':''}" data-sim-result="${i}"><div class="sim-result-top"><span class="sim-vessel-name">${esc(r.vessel.name)}${mySetSaved(r)?'<span class="saved-badge">保存済み</span>':''}</span><span class="sim-color-row">${r.vessel.slots.slice(0,3).map(simColorChip).join('')}<span class="sim-divider"></span>${r.vessel.slots.slice(3).map(simColorChip).join('')}</span></div><div class="sim-demerits">${simDemeritSummary(r)}</div></button>`}).join('');document.querySelectorAll('[data-sim-result]').forEach(b=>b.onclick=()=>{state.simSelectedResult=Number(b.dataset.simResult);renderSimResults()});renderSimDetail(state.simResults[state.simSelectedResult])}
 const MYSETS_STORAGE_KEY='nightreign_relic_mysets_v1';
 let mySets=[],mySetSelectedId=null;
 function mySetProfile(){return {player:state.player,slot:state.slot};}
@@ -1299,10 +1319,13 @@ function closeIgnoreModal(){
 $('#globalIgnoreBtn').onclick=()=>openIgnore('global');
 $('#simGlobalIgnoreBtn').onclick=()=>openIgnore('global');
 $('#simHeroIgnoreBtn').onclick=()=>{if(state.hero)openIgnore('hero')};
-$('#simBenefitPreviewBtn').onclick=()=>{renderSimBenefitPreview();$('#simBenefitPreviewDialog').showModal();};
+$('#simBenefitPreviewBtn').onclick=()=>{simBenefitDraft=new Map(simBenefitFilterState());renderSimBenefitPreview();$('#simBenefitPreviewDialog').showModal();};
 $('#simBenefitPreviewClose').onclick=()=>$('#simBenefitPreviewDialog').close();
 $('#simBenefitQuery').oninput=()=>renderSimBenefitPreviewList();
-$('#simBenefitScope').onchange=()=>renderSimBenefitPreview();
+$('#simBenefitPreviewDialog').onclose=()=>{simBenefitDraft=null;};
+$('#simBenefitClear').onclick=()=>{simBenefitDraft.clear();renderSimBenefitPreviewList();};
+$('#simBenefitApply').onclick=async()=>{if(simActiveSearch!==null||!simBenefitDraft)return;const refresh=state.simAdditionalStats!==null||state.simAdditionalCandidates.length>0;state.simBenefitExclusionsByHero.set(Number(state.hero)||0,{signature:simConditionSignature(),items:new Map(simBenefitDraft)});$('#simBenefitPreviewDialog').close();persistAppState();const pending=runSimulatorSearch(),revision=simSearchRevision;await pending;if(refresh&&revision===simSearchRevision&&!state.simAdditionalCancelRequested&&simActiveSearch===null)await runSimulatorAdditionalSearch();simScrollToOutput('normal');};
+$('#simSearchMode').onchange=()=>{state.simSearchMode=$('#simSearchMode').value;persistAppState();};
 $('#simBenefitCategory').onchange=()=>renderSimBenefitPreviewList();
 $('#simSearchBtn').onclick=()=>{if(simActiveSearch==='normal'){simRequestCancel('normal');return;}if(simActiveSearch)return;runSimulatorSearch();simScrollToOutput('normal');};
 $('#simAdditionalSearchBtn').onclick=()=>{if(simActiveSearch==='additional'){simRequestCancel('additional');return;}if(simActiveSearch)return;runSimulatorAdditionalSearch();simScrollToOutput('additional');};
