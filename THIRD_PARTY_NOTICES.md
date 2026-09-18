@@ -6,6 +6,7 @@ Build Assistantが流用・参照する部分についての著作権表示と�
 
 - プロジェクト：[mement-O/nightreign-relic-organizer](https://github.com/mement-O/nightreign-relic-organizer)
 - 対象：Build Assistantへ引き継いだセーブ読込・解析や効果整理の基盤。以下のMIT表示はOrganizer由来部分に適用されます。
+- v1.1.0の英語名称は、同じ確認版の `MASTER_DATA_EN_SNAPSHOT`（効果名793件・遺物名849件）と英訳補完を引き継いでいます。元の名称データはNightreign Save Editorのen_US FMGです。ランク表記はBuild Assistantの正式マスタに合わせています。
 - [確認したライセンス](https://github.com/mement-O/nightreign-relic-organizer/blob/002b129f463965578487ac53198f1748366bbf6c/LICENSE)
 - 確認した版：`002b129f463965578487ac53198f1748366bbf6c`（ライセンス確認用の版であり、過去の流用時の版がすべて特定できたという意味ではありません。CSV参照版は既存の出典記録と同じです。）
 
@@ -88,4 +89,3 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 本ツールはFromSoftware／Bandai Namco Entertainmentの非公式ツールです。各プロジェクトによる公式提供・承認を示すものではありません。
 
 具体的な参照ファイルと修正履歴は[データ出典](docs/data-sources.md)を参照してください。
-

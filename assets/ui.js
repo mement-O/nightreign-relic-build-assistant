@@ -93,8 +93,9 @@ window.NR_GAME_FILTER_MASTER=(()=>{
   }
   await loadIndex();
   function entry(label){const n=norm(label),hit=labelIndex.get(n);if(hit?.length)return hit[0];const d=direct(label);if(d)return d;let best=null,len=-1;for(const[k,a]of labelIndex){if((n.startsWith(k)||k.startsWith(n))&&k.length>len){best=a[0];len=k.length}}return best}
-  function simLabel(n){return $('.sim-effect-label',n)?.textContent||n.textContent||''}
-  function ignoreLabel(n){return $('label',n)?.textContent||n.textContent||''}
+  function canonicalText(n){return window.NR_I18N?.sourceText(n)??n?.textContent??''}
+  function simLabel(n){return canonicalText($('.sim-effect-label',n)||n)}
+  function ignoreLabel(n){return canonicalText($('label',n)||n)}
   function key(e){return e?.sortOrder??Number.MAX_SAFE_INTEGER}
   function rankInfo(label){
     const n=norm(label);
@@ -114,7 +115,7 @@ window.NR_GAME_FILTER_MASTER=(()=>{
   }
   function selectedHero(){
     const active=$('#simHeroList .hero-btn.active,#simHeroList button.active,#simHeroList [aria-pressed="true"]');
-    const texts=[active?.textContent,$('#simHeroIgnoreBtn')?.textContent].filter(Boolean).join(' ');
+    const texts=[canonicalText(active),canonicalText($('#simHeroIgnoreBtn'))].filter(Boolean).join(' ');
     return CHARS.find(c=>texts.includes(c))||null;
   }
   function observeSim(){const r=$('#simEffectCategories');if(r&&simObserver)simObserver.observe(r,{childList:true,subtree:true})}

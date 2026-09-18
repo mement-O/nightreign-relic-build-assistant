@@ -1,5 +1,9 @@
 # 出典と変更記録
 
+## v1.1.0 英語名称
+
+`data/names.en.json` はOrganizer `002b129f463965578487ac53198f1748366bbf6c` の `MASTER_DATA_EN_SNAPSHOT` に含まれる名称（Save Editor en_US FMG由来）を収録。正式マスタのIDで名称を対応付け、英語側に古いランクがある場合は正式マスタの値を優先する。日本語正式マスタ3ファイルは変更しない。管理方法は [localization.md](localization.md) を参照。
+
 v24では以下の変更を通常のマスタ・アプリへ統合しています。各記録のruntime名などは変更当時の構成です。Q2記録にあるB2未対応の状態は、その後のB2修正で解消済みです。
 
 # Relic color and normal/deep metadata

@@ -1,8 +1,16 @@
 # Nightreign Relic Build Assistant
 
-日本語版 v1.0.1。PC版セーブの所持遺物から、プリセット最適化・遺物編成検索・追加スキル検索を行うブラウザツールです。
+v1.1.0（日本語／English）。PC版セーブの所持遺物から、プリセット最適化・遺物編成検索・追加スキル検索を行うブラウザツールです。
 
 [ツールを開く](https://mement-o.github.io/nightreign-relic-build-assistant/)
+
+## 言語切替 / Language
+
+画面右上の「日本語」「English」で切り替えます。言語はこのブラウザに保存されます。検索条件・除外設定・検索結果・マイセットは切替前の状態を保持します。効果名の検索は日本語・英語のどちらでも利用できます。英語名称が未収録の効果・遺物は日本語で表示します。プリセット名・マイセット名・プレイヤー名は翻訳しません。
+
+Use **日本語 / English** at the top of the page. Language is remembered in this browser. Conditions, exclusions, results and saved builds are preserved when switching languages. Effect filters accept Japanese and English. Names missing from the English data remain in Japanese. User-defined names are kept unchanged.
+
+旧版の評価対象外・デメリット除外は初回読込時に固定IDへ移行します。管理方法と検証範囲は [docs/localization.md](docs/localization.md) を参照してください。
 
 ## 使い方
 
@@ -40,6 +48,10 @@
 - `assets/app.js`：セーブ読込・評価・検索・保存処理
 - `assets/ui.js`：分類表示・フィルター表示・スクロール補助
 - `assets/styles.css`：画面スタイル
+- `assets/i18n.js`：表示翻訳・言語設定（検索判定には使用しない）
+- `assets/locale-en.js`：英語UI文言
+- `data/names.en.json`：英語の効果名・遺物名
+- `data/effect-identities.json`：固定効果ファミリーIDと旧設定の移行表
 - `data/effect-rule-master.json`：適用範囲・重ね掛け・上限の正式ルール
 - `data/effect-base-master.json`：遺物名・効果名・EffectGroup・ランク
 - `data/relic-struct.json`：遺物IDごとの色・通常／深層
@@ -48,7 +60,7 @@
 HTTPサーバーで配信してください。`file://`ではJSON読込が動作しません。公開先はGitHub Pagesです。
 v24で旧圧縮分割ファイルや起動時のマスタ補正を統合しました。今後は現行JSONを直接編集します。
 
-日本語版の固定基準は `release/japanese-v1.0.1` ブランチです。多言語化は別の変更として進めます。旧版はGit履歴から復元でき、整備直前は `80f38f70dc6949d5f76d81e042bf525d860c1f1f`（v26）、旧ファイル整理前は `f937993a18b62f1dafae15b65a7695bda6f8274e`（v23h）です。
+日本語版の固定基準は `release/japanese-v1.0.1` ブランチです。v1.1.0で日英切替を追加しました。旧版はGit履歴から復元でき、整備直前は `80f38f70dc6949d5f76d81e042bf525d860c1f1f`（v26）、旧ファイル整理前は `f937993a18b62f1dafae15b65a7695bda6f8274e`（v23h）です。
 
 ## 参考情報・ライセンス
 

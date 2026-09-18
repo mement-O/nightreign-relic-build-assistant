@@ -1,6 +1,7 @@
 (async()=>{'use strict';
 const fetchJson=async path=>{const res=await fetch(path,{cache:'no-store'});if(!res.ok)throw new Error(`データ読込失敗: ${path} (${res.status})`);return res.json()};
-const [BUILTIN_STRUCT,MASTER_DATA_SNAPSHOT,EFFECT_RULE_MASTER]=await Promise.all([fetchJson('./data/relic-struct.json'),fetchJson('./data/effect-base-master.json'),fetchJson('./data/effect-rule-master.json')]);
+const [BUILTIN_STRUCT,MASTER_DATA_SNAPSHOT,EFFECT_RULE_MASTER,EFFECT_IDENTITIES,EN_NAMES]=await Promise.all([fetchJson('./data/relic-struct.json'),fetchJson('./data/effect-base-master.json'),fetchJson('./data/effect-rule-master.json'),fetchJson('./data/effect-identities.json'),fetchJson('./data/names.en.json')]);
+window.NR_I18N?.configure(MASTER_DATA_SNAPSHOT,EN_NAMES);
 if(!BUILTIN_STRUCT.r||!Object.keys(BUILTIN_STRUCT.r).length||Object.values(BUILTIN_STRUCT.r).some(v=>!Array.isArray(v)||v.length!==2||!Number.isInteger(v[0])||v[0]<0||v[0]>3||(v[1]!==0&&v[1]!==1)))throw new Error('遺物の色・通常／深層マスタが不正です。');
 const EFFECT_RULES=EFFECT_RULE_MASTER.effects||[];
 const EFFECT_RULES_BY_ID=new Map();for(const rule of EFFECT_RULES)for(const id of rule.effectIds||[]){if(!EFFECT_RULES_BY_ID.has(id))EFFECT_RULES_BY_ID.set(id,[]);EFFECT_RULES_BY_ID.get(id).push(rule)}
@@ -22,14 +23,14 @@ function simConditionSignature(map=state.simConditions){
 function simDemeritFilterState(hero=state.hero){
  const h=Number(hero)||0, sig=simConditionSignature(simConditionsForHero(h));
  let s=state.simDemeritExclusionsByHero.get(h);
- if(!s){s={signature:sig,names:new Set()};state.simDemeritExclusionsByHero.set(h,s)}
- if(s.signature!==sig){s.signature=sig;s.names.clear()}
+ if(!s){s={signature:sig,keys:new Set()};state.simDemeritExclusionsByHero.set(h,s)}
+ if(s.signature!==sig){s.signature=sig;s.keys.clear()}
  return s
 }
 function simSearchConditionsChanged(){
  simInvalidateSearch();
  const h=Number(state.hero)||0;
- state.simDemeritExclusionsByHero.set(h,{signature:simConditionSignature(state.simConditions),names:new Set()});
+ state.simDemeritExclusionsByHero.set(h,{signature:simConditionSignature(state.simConditions),keys:new Set()});
  state.simResults=[];state.simSelectedResult=-1;
  state.simAdditionalCandidates=[];state.simAdditionalStats=null;
  if($('#simSearchStatus'))$('#simSearchStatus').innerHTML='';
@@ -88,7 +89,7 @@ function removeIgnoredSimConditions(){
    if(!rule||!(rule.effectIds||[]).some(id=>isEffectIgnored(id,ignored)))continue;
    conditions.delete(key);changed=true;
   }
-  if(changed)state.simDemeritExclusionsByHero.set(hero,{signature:simConditionSignature(conditions),names:new Set()});
+  if(changed)state.simDemeritExclusionsByHero.set(hero,{signature:simConditionSignature(conditions),keys:new Set()});
  }
 }
 function simIgnoreSettingsChanged(){
@@ -98,18 +99,20 @@ function simIgnoreSettingsChanged(){
  persistAppState();
  renderSimulator();
 }
+function showAlert(message){alert(window.NR_I18N?.t(message)||message)}
+function showConfirm(message){return confirm(window.NR_I18N?.t(message)||message)}
 const STORAGE_KEY='nightreign_relic_build_assistant_phase2_v2';
 function persistAppState(){
   try{
     const data={
-      v:4,simSearchMode:state.simSearchMode,simBenefitExclusionsByHero:[...state.simBenefitExclusionsByHero].map(([h,s])=>[h,{signature:s.signature,items:[...s.items]}]),
+      v:5,simSearchMode:state.simSearchMode,simBenefitExclusionsByHero:[...state.simBenefitExclusionsByHero].map(([h,s])=>[h,{signature:s.signature,items:[...s.items]}]),
       saveName:state.saveName||'',player:state.player||'',slot:state.slot,hero:state.hero||0,currentPresetPos:state.currentPresetPos||0,
       relics:[...state.relics.entries()],
       presets:state.presets.map(p=>({...p,timestamp:p.timestamp!=null?String(p.timestamp):'0'})),
       globalIgnored:[...state.globalIgnored],
       heroIgnored:[...state.heroIgnored.entries()].map(([h,set])=>[h,[...set]]),
       simConditionsByHero:[...state.simConditionsByHero.entries()].map(([h,m])=>[h,[...m.entries()]]),
-      simDemeritExclusionsByHero:[...state.simDemeritExclusionsByHero.entries()].map(([h,s])=>[h,{signature:s.signature||'',names:[...s.names]}])
+      simDemeritExclusionsByHero:[...state.simDemeritExclusionsByHero.entries()].map(([h,s])=>[h,{signature:s.signature||'',keys:[...s.keys]}])
     };
     localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
   }catch(e){console.warn('状態保存に失敗しました',e)}
@@ -117,14 +120,14 @@ function persistAppState(){
 function restoreAppState(){
   try{
     const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return false;
-    const d=JSON.parse(raw);if(!d||![2,3,4].includes(d.v))return false;
+    const d=JSON.parse(raw);if(!d||![2,3,4,5].includes(d.v))return false;
     state.simSearchMode=['50','100','all'].includes(d.simSearchMode)?d.simSearchMode:'50';$('#simSearchMode').value=state.simSearchMode;
     state.simBenefitExclusionsByHero=new Map((d.simBenefitExclusionsByHero||[]).map(([h,s])=>[Number(h),{signature:s.signature,items:new Map(s.items||[])}]));
     state.saveName=d.saveName||'';state.player=d.player||'';state.slot=Number.isInteger(d.slot)?d.slot:-1;
     state.relics=new Map(Array.isArray(d.relics)?d.relics:[]);
     state.presets=(Array.isArray(d.presets)?d.presets:[]).map(p=>({...p,timestamp:BigInt(p.timestamp||'0')}));
-    state.globalIgnored=new Set(Array.isArray(d.globalIgnored)?d.globalIgnored:[]);
-    state.heroIgnored=new Map((Array.isArray(d.heroIgnored)?d.heroIgnored:[]).map(([h,a])=>[Number(h),new Set(Array.isArray(a)?a:[])]));
+    state.globalIgnored=migrateIgnoreKeys(new Set(Array.isArray(d.globalIgnored)?d.globalIgnored:[]));
+    state.heroIgnored=new Map((Array.isArray(d.heroIgnored)?d.heroIgnored:[]).map(([h,a])=>[Number(h),migrateIgnoreKeys(new Set(Array.isArray(a)?a:[]))]));
     state.hero=Number(d.hero)||state.presets[0]?.heroId||0;state.currentPresetPos=Number(d.currentPresetPos)||0;
     state.simConditionsByHero=new Map();
     if(d.v>=3&&Array.isArray(d.simConditionsByHero)){
@@ -136,13 +139,13 @@ function restoreAppState(){
     state.simDemeritExclusionsByHero=new Map();
     if(d.v>=4&&Array.isArray(d.simDemeritExclusionsByHero)){
       for(const [h,s] of d.simDemeritExclusionsByHero){
-        state.simDemeritExclusionsByHero.set(Number(h),{signature:String(s?.signature||''),names:new Set(Array.isArray(s?.names)?s.names:[])});
+        state.simDemeritExclusionsByHero.set(Number(h),{signature:String(s?.signature||''),keys:migrateDemeritKeys(new Set(Array.isArray(s?.keys)?s.keys:Array.isArray(s?.names)?s.names:[]))});
       }
     }
     activateSimConditionsForHero(state.hero);
     removeIgnoredSimConditions();
     simDemeritFilterState(state.hero);
-    state.selectedGa=0;state.selectedSlot=-1;state.workingPresets.clear();state.simResults=[];state.simSelectedResult=-1;ignoreAliasMapCache=null;
+    state.selectedGa=0;state.selectedSlot=-1;state.workingPresets.clear();state.simResults=[];state.simSelectedResult=-1;
     if(!state.relics.size)return false;
     $('#saveStatus').textContent=`復元済み：${state.saveName||'前回のセーブ'}`;$('#saveStatus').className='pill ok';
     $('#playerStatus').textContent=`プレイヤー：${state.player}`;$('#presetStatus').textContent=`プリセット：${state.presets.length}件`;
@@ -163,25 +166,12 @@ function renderRelicMetadataNotice(){
 function effectName(id){return MASTER_DATA_SNAPSHOT.effectNames[id]||`Effect ${id}`}
 function effectInfo(id){const g=MASTER_DATA_SNAPSHOT.effectGroups?.[id]||null;return {id,name:effectName(id),jaName:MASTER_DATA_SNAPSHOT.effectNames?.[id]||effectName(id),group:g?.group??null,level:g?.level??null}}
 function ignoreBaseLabel(name){return String(name||'').replace(/[＋+]\s*[0-9０-９]+\s*$/,'').trim()}
-let ignoreAliasMapCache=null;
 function normalizeEffectIdentity(s){return String(s||'').normalize('NFKC').replace(/\s+/g,'').toLowerCase()}
-function getIgnoreAliasMap(){
-  if(ignoreAliasMapCache)return ignoreAliasMapCache;
-  const groupedByLabel=new Map();
-  for(const r of state.relics.values())for(const id of r.effects||[]){
-    const e=effectInfo(id);if(!e.group)continue;
-    const label=normalizeEffectIdentity(ignoreBaseLabel(effectName(id)));
-    if(label&&!groupedByLabel.has(label))groupedByLabel.set(label,`g:${e.group}`);
-  }
-  const byId=new Map();
-  for(const r of state.relics.values())for(const id of r.effects||[]){
-    const e=effectInfo(id);if(e.group)continue;
-    const alias=groupedByLabel.get(normalizeEffectIdentity(ignoreBaseLabel(effectName(id))));
-    if(alias)byId.set(id,alias);
-  }
-  ignoreAliasMapCache=byId;return byId;
-}
-function effectIgnoreKey(e){if(e.group)return `g:${e.group}`;return `n:${normalizeEffectIdentity(ignoreBaseLabel(e.name))}`}
+function effectIgnoreKey(e){return EFFECT_IDENTITIES.ignoreById[e.id]||`ignore:${e.id}`}
+function migrateIgnoreKeys(keys){return new Set([...keys].map(k=>EFFECT_IDENTITIES.legacyIgnore[k]||(/^n:effect\d+$/i.test(k)?`ignore:${k.slice(8)}`:k)))}
+function demeritKey(id){return EFFECT_IDENTITIES.demeritById[id]||`demerit:${id}`}
+function demeritLabel(key){return key.startsWith('demerit:')?effectName(Number(key.slice(8))):key}
+function migrateDemeritKeys(keys){return new Set([...keys].map(k=>EFFECT_IDENTITIES.legacyDemerit[k]||(/^Effect \d+$/.test(k)?`demerit:${k.slice(7)}`:k)))}
 function activeIgnoredKeys(){return new Set([...state.globalIgnored,...(state.hero?heroIgnoredSet(state.hero):[])])}
 function isEffectIgnored(id,keys=activeIgnoredKeys()){return keys.has(effectIgnoreKey(effectInfo(id)))}
 function comparableRelic(ga){const r=state.relics.get(ga);if(!r)return null;const m=relicMeta(r.relicId);if(!m.known)return null;return {...r,name:m.name,color:m.color,deep:m.deep,effectInfos:(r.effects||[]).map(id=>({...effectInfo(id),optimizerDeep:m.deep})),curseInfos:(r.curses||[]).map(effectInfo)}}
@@ -366,12 +356,10 @@ function ignoreOptionsInSave(){
   for(const r of state.relics.values())for(const id of r.effects||[]){
     const e=effectInfo(id);
 
-    // Organizer-compatible identity:
-    // ranked effects => EffectGroup; unranked => normalized displayed effect label.
-    const rankedKey=e.group?`g:${e.group}`:null;
+    // Stable effect-family ID, independent of the display language.
+    const rankedKey=e.group;
     const baseLabel=ignoreBaseLabel(e.name);
-    const labelKey=`n:${normalizeEffectIdentity(baseLabel)}`;
-    const key=rankedKey||labelKey;
+    const key=effectIgnoreKey(e);
 
     const label=rankedKey?`${baseLabel}（全ランク）`:baseLabel;
     const category=effectCategory(e);
@@ -389,16 +377,7 @@ function ignoreOptionsInSave(){
     }
   }
 
-  // Some save/master combinations expose the same displayed effect through more than one
-  // internal ID / EffectGroup. The filter is a UI-level effect selector, so show each
-  // normalized displayed effect only once. Prefer the grouped entry when available.
-  const deduped=new Map();
-  for(const o of map.values()){
-    const displayKey=normalizeEffectIdentity(o.label.replace(/（全ランク）$/,''));
-    const prev=deduped.get(displayKey);
-    if(!prev || (o.key.startsWith('g:')&&!prev.key.startsWith('g:')) || (o.key.startsWith('g:')===prev.key.startsWith('g:')&&o.id<prev.id)) deduped.set(displayKey,o);
-  }
-  return [...deduped.values()].sort((a,b)=>a.id-b.id);
+  return [...map.values()].sort((a,b)=>a.id-b.id);
 }
 function effectsInSave(){return ignoreOptionsInSave()}
 function renderIgnoreModal(){
@@ -414,7 +393,7 @@ function renderIgnoreModal(){
     const inherited=!globalMode&&state.globalIgnored.has(o.key);
     const checked=inherited||local.has(o.key);
     return (state.ignoreSelectedOnly?checked:categoryMatches(state.ignoreCategory,o.category))
-      &&(!q||o.label.toLowerCase().includes(q)||String(o.id).includes(q));
+      &&(!q||(window.NR_I18N?.matches(o.label,q)??o.label.toLowerCase().includes(q))||String(o.id).includes(q));
   });
 
   if(!state.ignoreSelectedOnly&&state.ignoreCategory==='character_special')opts=opts.sort(sortCharacterEffects);
@@ -501,7 +480,7 @@ function syncPresetNav(){
   }
   if(state.currentPresetPos<0)state.currentPresetPos=0;
   if(state.currentPresetPos>=list.length)state.currentPresetPos=list.length-1;
-  $('#presetSelect').innerHTML=list.map((p,i)=>`<option value="${i}" ${i===state.currentPresetPos?'selected':''}>${esc(presetDisplayName(p,i))}</option>`).join('');
+  $('#presetSelect').innerHTML=list.map((p,i)=>`<option translate="no" value="${i}" ${i===state.currentPresetPos?'selected':''}>${esc(presetDisplayName(p,i))}</option>`).join('');
   $('#presetSelect').disabled=false;
   $('#prevPresetBtn').disabled=state.currentPresetPos<=0;
   $('#nextPresetBtn').disabled=state.currentPresetPos>=list.length-1;
@@ -810,11 +789,11 @@ function simApplyGroup(group,measures,seenConflicts){
 }
 function simDemeritNamesFromRelics(relics){
  const out=[];
- for(const r of relics||[])for(const id of r.curses||[]){const n=effectName(id);if(n)out.push(n)}
+ for(const r of relics||[])for(const id of r.curses||[]){const n=demeritKey(id);if(n)out.push(n)}
  return out
 }
 function simHasExcludedDemerit(relics){
- const excluded=simDemeritFilterState().names;
+ const excluded=simDemeritFilterState().keys;
  if(!excluded.size)return false;
  return simDemeritNamesFromRelics(relics).some(n=>excluded.has(n))
 }
@@ -1000,7 +979,7 @@ function renderSimAdditionalCandidates(){
 }
 async function runSimulatorAdditionalSearch(){
  if(!state.relics.size)return;
- if(!state.simConditions.size){alert('まず検索条件を1つ以上選択してください。');return}
+ if(!state.simConditions.size){showAlert('まず検索条件を1つ以上選択してください。');return}
  const searchRevision=simBeginSearch('additional');
  const started=performance.now(),formatElapsed=ms=>{if(ms<1000)return `${Math.round(ms)}ms`;const s=ms/1000;if(s<60)return `${s.toFixed(s<10?2:1)}秒`;const m=Math.floor(s/60),rs=s-m*60;return `${m}分${rs.toFixed(1)}秒`};
  simUpdateSearchButtons();
@@ -1098,7 +1077,7 @@ async function simMaterializeGroupPatternAsync(vessel,groups,limit,revision){
 }
 
 async function runSimulatorSearch(){
- if(!state.relics.size)return;if(!state.simConditions.size){alert('検索する効果を1つ以上選択してください。');return}
+ if(!state.relics.size)return;if(!state.simConditions.size){showAlert('検索する効果を1つ以上選択してください。');return}
  const searchRevision=simBeginSearch('normal');state.simResultPage=0;const resultLimit=state.simSearchMode==='all'?20000:Number(state.simSearchMode);
  const searchStartedAt=performance.now();let timedOut=false;const safetyTimer=setTimeout(()=>{if(searchRevision===simSearchRevision){timedOut=true;state.simAdditionalCancelRequested=true;simUpdateSearchButtons();}},60000);
  const formatElapsed=ms=>{if(ms<1000)return `${Math.round(ms)}ms`;const s=ms/1000;if(s<60)return `${s.toFixed(s<10?2:1)}秒`;const m=Math.floor(s/60),rs=s-m*60;return `${m}分${rs.toFixed(1)}秒`};
@@ -1146,15 +1125,15 @@ async function runSimulatorSearch(){
 }
 function renderSimDemeritFilter(){
  const host=$('#simDemeritFilter');if(!host)return;
- const selected=simDemeritFilterState().names;
+ const selected=simDemeritFilterState().keys;
  const names=new Set(selected);
  for(const result of state.simResults)for(const n of simDemeritNamesFromRelics(result.relics))names.add(n);
- const list=[...names].sort((a,b)=>a.localeCompare(b,'ja'));
+ const list=[...names].sort((a,b)=>demeritLabel(a).localeCompare(demeritLabel(b),'ja'));
  if(!list.length){host.innerHTML='';return}
- host.innerHTML=`<div class="sim-demerit-filter-box"><div class="sim-demerit-filter-head"><div><div class="sim-demerit-filter-title">検索結果に含まれるデメリット効果</div><div class="sim-demerit-filter-help">チェックした効果を含む構成を次回検索から除外します。追加スキル候補を表示中は自動で再検索します。検索条件を変更するまで選択状態を保持します。</div></div><div class="muted">除外：${selected.size}件</div></div><div class="sim-demerit-filter-grid">${list.map(n=>`<label class="sim-demerit-filter-item ${selected.has(n)?'selected':''}"><input type="checkbox" data-sim-demerit-exclude="${esc(n)}" ${selected.has(n)?'checked':''}><span>${esc(n)}</span></label>`).join('')}</div></div>`;
+ host.innerHTML=`<div class="sim-demerit-filter-box"><div class="sim-demerit-filter-head"><div><div class="sim-demerit-filter-title">検索結果に含まれるデメリット効果</div><div class="sim-demerit-filter-help">チェックした効果を含む構成を次回検索から除外します。追加スキル候補を表示中は自動で再検索します。検索条件を変更するまで選択状態を保持します。</div></div><div class="muted">除外：${selected.size}件</div></div><div class="sim-demerit-filter-grid">${list.map(n=>`<label class="sim-demerit-filter-item ${selected.has(n)?'selected':''}"><input type="checkbox" data-sim-demerit-exclude="${esc(n)}" ${selected.has(n)?'checked':''}><span>${esc(demeritLabel(n))}</span></label>`).join('')}</div></div>`;
  document.querySelectorAll('[data-sim-demerit-exclude]').forEach(ch=>ch.onchange=()=>{
   const s=simDemeritFilterState(),name=ch.dataset.simDemeritExclude;
-  if(ch.checked)s.names.add(name);else s.names.delete(name);
+  if(ch.checked)s.keys.add(name);else s.keys.delete(name);
   simDemeritSelectionChanged()
  })
 }
@@ -1187,9 +1166,9 @@ function simResultBenefits(){
 }
 function simBenefitPreviewItems(){const items=new Map(simResultBenefits().map(x=>[x.key,x]));for(const [key,x] of simBenefitFilterState())if(!items.has(key))items.set(key,{...x,count:0});return [...items.values()].sort((a,b)=>Number(simBenefitFilterState().has(b.key))-Number(simBenefitFilterState().has(a.key)));}
 function renderSimBenefitPreview(){const items=simBenefitPreviewItems(),button=$('#simBenefitPreviewBtn');if(!button)return;button.disabled=(!state.simResults.length&&!simBenefitFilterState().size)||simActiveSearch!==null;button.textContent='メリット効果の除外候補を見る（除外 '+simBenefitFilterState().size+'種類）';const select=$('#simBenefitCategory'),previous=select.value;select.innerHTML='<option value="">すべての分類</option>'+[...new Set(items.map(x=>x.category))].map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');select.value=previous;renderSimBenefitPreviewList(items);}
-function renderSimBenefitPreviewList(items=simBenefitPreviewItems()){const draft=simBenefitDraft||simBenefitFilterState(),query=normalizeEffectIdentity($('#simBenefitQuery').value),category=$('#simBenefitCategory').value;const shown=items.filter(x=>(!category||x.category===category)&&(!query||normalizeEffectIdentity(x.label).includes(query)));$('#simBenefitPreviewCount').textContent=shown.length+' / '+items.length+'種類・取得した検索結果 '+state.simResults.length+'件・選択 '+draft.size+'種類';$('#simBenefitPreviewList').innerHTML=shown.map(x=>'<li class="benefit-preview-row"><label><input type="checkbox" data-benefit-key="'+esc(x.key)+'" '+(draft.has(x.key)?'checked':'')+'><span class="benefit-preview-category">'+esc(x.category)+'</span> '+esc(x.label)+(simBenefitFilterState().has(x.key)?'（除外中）':'')+'</label><span>'+x.count+' / '+state.simResults.length+'件</span></li>').join('')||'<li class="sim-empty">該当するメリット効果はありません。</li>';document.querySelectorAll('[data-benefit-key]').forEach(ch=>ch.onchange=()=>{const item=items.find(x=>x.key===ch.dataset.benefitKey);if(ch.checked)simBenefitDraft.set(item.key,item);else simBenefitDraft.delete(item.key);renderSimBenefitPreviewList();});}
+function renderSimBenefitPreviewList(items=simBenefitPreviewItems()){const draft=simBenefitDraft||simBenefitFilterState(),query=normalizeEffectIdentity($('#simBenefitQuery').value),category=$('#simBenefitCategory').value;const shown=items.filter(x=>(!category||x.category===category)&&(!query||(window.NR_I18N?.matches(x.label,query)??normalizeEffectIdentity(x.label).includes(query))));$('#simBenefitPreviewCount').textContent=shown.length+' / '+items.length+'種類・取得した検索結果 '+state.simResults.length+'件・選択 '+draft.size+'種類';$('#simBenefitPreviewList').innerHTML=shown.map(x=>'<li class="benefit-preview-row"><label><input type="checkbox" data-benefit-key="'+esc(x.key)+'" '+(draft.has(x.key)?'checked':'')+'><span class="benefit-preview-category">'+esc(x.category)+'</span> '+esc(x.label)+(simBenefitFilterState().has(x.key)?'（除外中）':'')+'</label><span>'+x.count+' / '+state.simResults.length+'件</span></li>').join('')||'<li class="sim-empty">該当するメリット効果はありません。</li>';document.querySelectorAll('[data-benefit-key]').forEach(ch=>ch.onchange=()=>{const item=items.find(x=>x.key===ch.dataset.benefitKey);if(ch.checked)simBenefitDraft.set(item.key,item);else simBenefitDraft.delete(item.key);renderSimBenefitPreviewList();});}
 
-function renderSimResults(){const pages=Math.max(1,Math.ceil(state.simResults.length/50));state.simResultPage=Math.min(state.simResultPage,pages-1);$('#simResultPages').innerHTML='<button class="btn" id="simPagePrev" '+(!state.simResultPage?'disabled':'')+'>前へ</button> '+(state.simResultPage+1)+' / '+pages+'ページ <button class="btn" id="simPageNext" '+(state.simResultPage>=pages-1?'disabled':'')+'>次へ</button>';$('#simPagePrev').onclick=()=>{state.simResultPage--;renderSimResults()};$('#simPageNext').onclick=()=>{state.simResultPage++;renderSimResults()};renderSimBenefitPreview();if(!$('#simResultList'))return;$('#simResultCount').textContent=state.simResults.length?`(${state.simResults.length}件)`:'';if(!state.simResults.length){$('#simResultList').innerHTML=$('#simSearchStatus').textContent.includes('検索完了')?'<div class="sim-empty">条件に合う構成はありません。検索条件や除外する効果を見直してください。</div>':'<div class="sim-empty">検索後に結果を表示します。</div>';$('#simResultDetail').innerHTML='<div class="sim-empty">左の検索結果を選択してください。</div>';return}$('#simResultList').innerHTML=state.simResults.slice(state.simResultPage*50,(state.simResultPage+1)*50).map((r,j)=>{const i=state.simResultPage*50+j;return `<button class="sim-result-item ${i===state.simSelectedResult?'active':''} ${mySetSaved(r)?'is-saved':''}" data-sim-result="${i}"><div class="sim-result-top"><span class="sim-vessel-name">${esc(r.vessel.name)}${mySetSaved(r)?'<span class="saved-badge">保存済み</span>':''}</span><span class="sim-color-row">${r.vessel.slots.slice(0,3).map(simColorChip).join('')}<span class="sim-divider"></span>${r.vessel.slots.slice(3).map(simColorChip).join('')}</span></div><div class="sim-demerits">${simDemeritSummary(r)}</div></button>`}).join('');document.querySelectorAll('[data-sim-result]').forEach(b=>b.onclick=()=>{state.simSelectedResult=Number(b.dataset.simResult);renderSimResults()});renderSimDetail(state.simResults[state.simSelectedResult])}
+function renderSimResults(){const pages=Math.max(1,Math.ceil(state.simResults.length/50));state.simResultPage=Math.min(state.simResultPage,pages-1);$('#simResultPages').innerHTML='<button class="btn" id="simPagePrev" '+(!state.simResultPage?'disabled':'')+'>前へ</button> '+(state.simResultPage+1)+' / '+pages+'ページ <button class="btn" id="simPageNext" '+(state.simResultPage>=pages-1?'disabled':'')+'>次へ</button>';$('#simPagePrev').onclick=()=>{state.simResultPage--;renderSimResults()};$('#simPageNext').onclick=()=>{state.simResultPage++;renderSimResults()};renderSimBenefitPreview();if(!$('#simResultList'))return;$('#simResultCount').textContent=state.simResults.length?`(${state.simResults.length}件)`:'';if(!state.simResults.length){$('#simResultList').innerHTML=(window.NR_I18N?.sourceText($('#simSearchStatus'))||$('#simSearchStatus').textContent).includes('検索完了')?'<div class="sim-empty">条件に合う構成はありません。検索条件や除外する効果を見直してください。</div>':'<div class="sim-empty">検索後に結果を表示します。</div>';$('#simResultDetail').innerHTML='<div class="sim-empty">左の検索結果を選択してください。</div>';return}$('#simResultList').innerHTML=state.simResults.slice(state.simResultPage*50,(state.simResultPage+1)*50).map((r,j)=>{const i=state.simResultPage*50+j;return `<button class="sim-result-item ${i===state.simSelectedResult?'active':''} ${mySetSaved(r)?'is-saved':''}" data-sim-result="${i}"><div class="sim-result-top"><span class="sim-vessel-name">${esc(r.vessel.name)}${mySetSaved(r)?'<span class="saved-badge">保存済み</span>':''}</span><span class="sim-color-row">${r.vessel.slots.slice(0,3).map(simColorChip).join('')}<span class="sim-divider"></span>${r.vessel.slots.slice(3).map(simColorChip).join('')}</span></div><div class="sim-demerits">${simDemeritSummary(r)}</div></button>`}).join('');document.querySelectorAll('[data-sim-result]').forEach(b=>b.onclick=()=>{state.simSelectedResult=Number(b.dataset.simResult);renderSimResults()});renderSimDetail(state.simResults[state.simSelectedResult])}
 const MYSETS_STORAGE_KEY='nightreign_relic_mysets_v1';
 let mySets=[],mySetSelectedId=null;
 function mySetProfile(){return {player:state.player,slot:state.slot};}
@@ -1200,7 +1179,7 @@ function mySetKey(result,hero=state.hero,profile=mySetProfile()){
 function mySetSaved(result){const k=mySetKey(result);return mySets.some(s=>s.key===k);}
 function writeMySets(next){
  try{localStorage.setItem(MYSETS_STORAGE_KEY,JSON.stringify({v:1,sets:next}));mySets=next;return true;}
- catch(e){console.warn('マイセット保存失敗',e);alert('マイセットを保存できませんでした。ブラウザの保存容量・設定を確認してください。');return false;}
+ catch(e){console.warn('マイセット保存失敗',e);showAlert('マイセットを保存できませんでした。ブラウザの保存容量・設定を確認してください。');return false;}
 }
 function loadMySets(){
  try{const d=JSON.parse(localStorage.getItem(MYSETS_STORAGE_KEY)||'null');if(d?.v===1&&Array.isArray(d.sets))mySets=d.sets.filter(s=>s&&typeof s.id==='string'&&typeof s.name==='string'&&s.profile&&Number.isInteger(s.hero)&&s.result?.vessel&&Array.isArray(s.result.vessel.slots)&&s.result.vessel.slots.length===6&&Array.isArray(s.result.relics)&&s.result.relics.length===6&&s.result.relics.every(r=>r&&Number.isInteger(r.relicId)&&Number.isInteger(r.ga)&&Array.isArray(r.effects)&&Array.isArray(r.curses))).map(s=>({...s,key:mySetKey(s.result,s.hero,s.profile)}));}
@@ -1218,13 +1197,13 @@ function renderMySets(){
  const host=$('#mySetList');if(!host)return;
  if(!mySets.length){host.innerHTML='<div class="sim-empty">保存した構成はありません。検索結果の「遺物構成を保存」から追加できます。</div>';$('#mySetDetail').innerHTML='';return;}
  if(!mySets.some(s=>s.id===mySetSelectedId))mySetSelectedId=mySets[0].id;
- host.innerHTML=mySets.map((s,i)=>`<article class="myset-row ${s.id===mySetSelectedId?'active':''}"><button class="myset-select" data-myset-select="${esc(s.id)}"><strong>${esc(s.name)}</strong><span>${esc(HERO_NAMES[s.hero]||'')} / ${esc(s.result.vessel.name)}</span><small>${esc(s.profile.player)} · セーブ枠 ${Number(s.profile.slot)+1}</small></button><div class="myset-actions"><button class="btn" data-myset-up="${esc(s.id)}" ${i===0?'disabled':''} aria-label="${esc(s.name)}を上へ">↑</button><button class="btn" data-myset-down="${esc(s.id)}" ${i===mySets.length-1?'disabled':''} aria-label="${esc(s.name)}を下へ">↓</button><button class="btn danger" data-myset-delete="${esc(s.id)}">削除</button></div></article>`).join('');
+ host.innerHTML=mySets.map((s,i)=>`<article class="myset-row ${s.id===mySetSelectedId?'active':''}"><button class="myset-select" data-myset-select="${esc(s.id)}"><strong translate="no">${esc(s.name)}</strong><span>${esc(HERO_NAMES[s.hero]||'')} / ${esc(s.result.vessel.name)}</span><small><span translate="no">${esc(s.profile.player)}</span> · <span>セーブ枠 ${Number(s.profile.slot)+1}</span></small></button><div class="myset-actions"><button class="btn" data-myset-up="${esc(s.id)}" ${i===0?'disabled':''} aria-label="${esc(s.name)}を上へ">↑</button><button class="btn" data-myset-down="${esc(s.id)}" ${i===mySets.length-1?'disabled':''} aria-label="${esc(s.name)}を下へ">↓</button><button class="btn danger" data-myset-delete="${esc(s.id)}">削除</button></div></article>`).join('');
  const selected=mySets.find(s=>s.id===mySetSelectedId),missing=mySetMissingCount(selected);
- $('#mySetDetail').innerHTML=`<h3>${esc(selected.name)}</h3>${missing===null?'<p class="note">別のセーブ枠から保存した構成です。</p>':missing?`<p class="note">現在のセーブで一致する遺物を確認できない枠が${missing}個あります。保存時の構成を表示しています。</p>`:''}${simDetailHtml(selected.result,selected.hero)}`;
+ $('#mySetDetail').innerHTML=`<h3 translate="no">${esc(selected.name)}</h3>${missing===null?'<p class="note">別のセーブ枠から保存した構成です。</p>':missing?`<p class="note">現在のセーブで一致する遺物を確認できない枠が${missing}個あります。保存時の構成を表示しています。</p>`:''}${simDetailHtml(selected.result,selected.hero)}`;
  document.querySelectorAll('[data-myset-select]').forEach(b=>b.onclick=()=>{mySetSelectedId=b.dataset.mysetSelect;renderMySets();});
  document.querySelectorAll('[data-myset-up]').forEach(b=>b.onclick=()=>moveMySet(b.dataset.mysetUp,-1));
  document.querySelectorAll('[data-myset-down]').forEach(b=>b.onclick=()=>moveMySet(b.dataset.mysetDown,1));
- document.querySelectorAll('[data-myset-delete]').forEach(b=>b.onclick=()=>{const s=mySets.find(s=>s.id===b.dataset.mysetDelete);if(s&&confirm(`「${s.name}」をマイセットから削除しますか？`))deleteMySet(s.id);});
+ document.querySelectorAll('[data-myset-delete]').forEach(b=>b.onclick=()=>{const s=mySets.find(s=>s.id===b.dataset.mysetDelete);if(s&&showConfirm(`「${s.name}」をマイセットから削除しますか？`))deleteMySet(s.id);});
 }
 function simDetailHtml(result,hero=state.hero){
  const seen=new Set();
@@ -1275,10 +1254,10 @@ function renderPresets(){
   }
   const p=list[state.currentPresetPos];
   workingState(p);
-  $('#presetList').innerHTML=`<div class="preset-grid"><article class="preset"><div class="preset-head"><div class="preset-title">${p.name?esc(p.name):'<span style="color:#8e98a7">名称なし</span>'}</div><div class="preset-meta"><span>${esc(HERO_NAMES[p.heroId]||`ID${p.heroId}`)}</span><span>登録：${formatDate(p.timestamp)}</span><span>Vessel ID：${p.vesselId}</span><span>Preset #${p.index+1}</span></div></div><div class="section"><div class="section-title">通常遺物</div>${[0,1,2].map(i=>relicCard(p,i)).join('')}</div><div class="section"><div class="section-title">深層遺物</div>${[3,4,5].map(i=>relicCard(p,i)).join('')}</div></article></div>`;
+  $('#presetList').innerHTML=`<div class="preset-grid"><article class="preset"><div class="preset-head"><div class="preset-title">${p.name?'<span translate="no">'+esc(p.name)+'</span>':'<span style="color:#8e98a7">名称なし</span>'}</div><div class="preset-meta"><span>${esc(HERO_NAMES[p.heroId]||`ID${p.heroId}`)}</span><span>登録：${formatDate(p.timestamp)}</span><span>Vessel ID：${p.vesselId}</span><span>Preset #${p.index+1}</span></div></div><div class="section"><div class="section-title">通常遺物</div>${[0,1,2].map(i=>relicCard(p,i)).join('')}</div><div class="section"><div class="section-title">深層遺物</div>${[3,4,5].map(i=>relicCard(p,i)).join('')}</div></article></div>`;
   bindRelicClicks();
 }
-async function importFile(file){simInvalidateSearch();$('#saveStatus').textContent='解析中…';$('#saveStatus').className='pill';try{if(file.size>128*1024*1024)throw new Error('セーブファイルが大きすぎます。');const entries=await unpackBnd4(await file.arrayBuffer());const slots=[];for(let i=0;i<Math.min(10,entries.length);i++){try{const s=parseSlot(entries[i]);if(s.owned)slots.push({i,...s})}catch(e){console.warn('slot',i,e)}}if(!slots.length)throw new Error('遺物を含むキャラクタースロットを検出できませんでした。');slots.sort((a,b)=>b.owned-a.owned);const s=slots[0];simInvalidateSearch();state.player=s.player||`Slot ${s.i+1}`;state.slot=s.i;state.saveName=file.name;state.relics=s.relicMap;renderRelicMetadataNotice();state.presets=parsePresets(entries[s.i]);state.hero=state.presets.some(p=>p.heroId===state.hero)?state.hero:(state.presets[0]?.heroId||1);activateSimConditionsForHero(state.hero);state.currentPresetPos=0;state.selectedGa=0;state.selectedSlot=-1;state.workingPresets.clear();state.simResults=[];state.simSelectedResult=-1;ignoreAliasMapCache=null;$('#saveStatus').textContent=`読込済み：${file.name}`;$('#saveStatus').className='pill ok';$('#playerStatus').textContent=`プレイヤー：${state.player}`;$('#presetStatus').textContent=`プリセット：${state.presets.length}件`;renderHeroes();renderPresets();renderCandidatePane(-1);updateIgnoreButtons();renderSimulator();persistAppState()}catch(e){console.error(e);$('#saveStatus').textContent='読込失敗';$('#saveStatus').className='pill err';alert('セーブ解析に失敗しました。\n\n'+e.message)}}
+async function importFile(file){simInvalidateSearch();$('#saveStatus').textContent='解析中…';$('#saveStatus').className='pill';try{if(file.size>128*1024*1024)throw new Error('セーブファイルが大きすぎます。');const entries=await unpackBnd4(await file.arrayBuffer());const slots=[];for(let i=0;i<Math.min(10,entries.length);i++){try{const s=parseSlot(entries[i]);if(s.owned)slots.push({i,...s})}catch(e){console.warn('slot',i,e)}}if(!slots.length)throw new Error('遺物を含むキャラクタースロットを検出できませんでした。');slots.sort((a,b)=>b.owned-a.owned);const s=slots[0];simInvalidateSearch();state.player=s.player||`Slot ${s.i+1}`;state.slot=s.i;state.saveName=file.name;state.relics=s.relicMap;renderRelicMetadataNotice();state.presets=parsePresets(entries[s.i]);state.hero=state.presets.some(p=>p.heroId===state.hero)?state.hero:(state.presets[0]?.heroId||1);activateSimConditionsForHero(state.hero);state.currentPresetPos=0;state.selectedGa=0;state.selectedSlot=-1;state.workingPresets.clear();state.simResults=[];state.simSelectedResult=-1;$('#saveStatus').textContent=`読込済み：${file.name}`;$('#saveStatus').className='pill ok';$('#playerStatus').textContent=`プレイヤー：${state.player}`;$('#presetStatus').textContent=`プリセット：${state.presets.length}件`;renderHeroes();renderPresets();renderCandidatePane(-1);updateIgnoreButtons();renderSimulator();persistAppState()}catch(e){console.error(e);$('#saveStatus').textContent='読込失敗';$('#saveStatus').className='pill err';showAlert('セーブ解析に失敗しました。\n\n'+e.message)}}
 $('#importBtn').onclick=()=>$('#fileInput').click();$('#fileInput').onchange=e=>{const f=e.target.files?.[0];if(f)importFile(f);e.target.value=''};
 function updateStickyOffsets(){
   const shell=document.querySelector('.sticky-shell');
