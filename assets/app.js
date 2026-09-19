@@ -665,7 +665,13 @@ function renderSimulator(){simRenderHeroes();updateIgnoreButtons();if(!state.rel
      if(other&&conflictSet.has(simUiConflictGroup(other)))state.simConditions.delete(otherKey);
     }
    }
-   let v=null;if(item.rule==='rank_sum')v=item.min;else if(item.rule==='count')v=1;
+   let v=null;
+   if(item.rule==='rank_sum'||item.rule==='count'){
+    const sel=ch.closest('.sim-effect')?.querySelector('[data-sim-value]');
+    const selected=sel?Number(sel.value):NaN;
+    const min=item.rule==='count'?1:item.min;
+    v=Number.isInteger(selected)&&selected>=min&&selected<=item.max?selected:min;
+   }
    state.simConditions.set(k,{key:k,value:v,rule:item.rule,label:item.display})
   }else state.simConditions.delete(k);
   simSearchConditionsChanged();persistAppState();renderSimulator()
