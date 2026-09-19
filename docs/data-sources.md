@@ -1,5 +1,9 @@
 # 出典と変更記録
 
+## v1.1.1 表示名称の整理
+
+ユーザー指定により、開始戦技20効果・開始魔術／祈祷10効果の `effect-base-master.effectNames` と `effect-rule-master.effects[].displayName/displayNameJa` から「※適用可能な武器種のみ」と直前の改行を削除。`masterKey`・旧設定移行表・適用範囲・競合グループは保持。効果一覧の「（通常）」は描画時に付けず、「（深層）」は維持する。名称整理であり、ゲームの適用可能な武器種を変更するものではない。
+
 ## v1.1.0 英語名称
 
 `data/names.en.json` はOrganizer `002b129f463965578487ac53198f1748366bbf6c` の `MASTER_DATA_EN_SNAPSHOT` に含まれる名称（Save Editor en_US FMG由来）を収録。正式マスタのIDで名称を対応付け、英語側に古いランクがある場合は正式マスタの値を優先する。日本語正式マスタ3ファイルは変更しない。管理方法は [localization.md](localization.md) を参照。
