@@ -466,7 +466,9 @@ function bindRelicClicks(){
   document.querySelectorAll('[data-reset-slot]').forEach(b=>b.onclick=e=>{e.stopPropagation();const p=currentPreset();resetWorkingSlot(p,Number(b.dataset.resetSlot))})
 }
 function getHeroPresetList(){return state.presets.filter(p=>p.heroId===state.hero).sort((a,b)=>(a.counter-b.counter)||(a.index-b.index))}
-function presetDisplayName(p,i){const name=p.name&&p.name.trim()?p.name.trim():'名称なし';return `${i+1}. ${name} — ${formatDate(p.timestamp)}`}
+function presetDisplayName(p,i){const t=s=>window.NR_I18N?.t(s)??s;const name=p.name&&p.name.trim()?p.name.trim():t('名称なし');return `${i+1}. ${name} — ${t(formatDate(p.timestamp))}`}
+// Only generated labels change language; user names and selection stay intact.
+window.addEventListener?.('nr-language-change',syncPresetNav);
 function syncPresetNav(){
   const list=getHeroPresetList();
   if(!list.length){

@@ -60,5 +60,8 @@ window.NR_EN_UI={
 'セーブファイルが大きすぎます。':'The save file is too large.','遺物を含むキャラクタースロットを検出できませんでした。':'No save slot containing relics was found.','Web Crypto API が利用できません。':'Web Crypto API is unavailable.','PC版のBND4セーブではありません。':'This is not a PC BND4 save.','BND4エントリ数が不正です。':'Invalid BND4 entry count.','遺物の色・通常／深層マスタが不正です。':'Invalid relic color / type master data.',
 '起動に失敗しました':'Failed to start','この版は外部JSONを読み込むため、file:// ではなくHTTPサーバー経由で開いてください。':'Open this app through an HTTP server, not file://, so its JSON data can be loaded.',
 '物理攻撃力上昇':'Physical Attack Power Up','魔力攻撃力上昇':'Magic Attack Power Up','炎攻撃力上昇':'Fire Attack Power Up','雷攻撃力上昇':'Lightning Attack Power Up','聖攻撃力上昇':'Holy Attack Power Up',
-'魔力カット率上昇':'Improved Magic Damage Negation','炎カット率上昇':'Improved Fire Damage Negation','雷カット率上昇':'Improved Lightning Damage Negation','聖カット率上昇':'Improved Holy Damage Negation'
+'魔力カット率上昇':'Improved Magic Damage Negation','炎カット率上昇':'Improved Fire Damage Negation','雷カット率上昇':'Improved Lightning Damage Negation','聖カット率上昇':'Improved Holy Damage Negation',
+'【追跡者】スキルの使用回数':'[Wylder] Character Skill uses','【鉄の目】スキルの使用回数':'[Ironeye] Character Skill uses',
+'デメリットなし':'No demerits','判定不能':'Unknown','日時不明':'Unknown date',
+'ItemState範囲外':'ItemState out of bounds','ItemStateサイズ不正':'Invalid ItemState size','ItemEntry count範囲外':'ItemEntry count out of bounds','Vessel block範囲外':'Vessel block out of bounds'
 };

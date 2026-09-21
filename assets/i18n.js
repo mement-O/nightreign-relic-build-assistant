@@ -27,10 +27,10 @@ function englishText(raw){
   for(const [pattern,replace]of templates){const m=s.match(pattern);if(m){out=replace(...m.slice(1));break;}}
  }
  // Decorations are removed only at their boundaries; unknown effect text stays Japanese.
- if(out===undefined){const m=s.match(/^(.*?)([（(](?:通常|深層|全ランク|共通設定|除外中)[）)])$/);if(m)out=englishText(m[1])+' '+englishText(m[2].slice(1,-1));}
+ if(out===undefined){const m=s.match(/^([\s\S]*?)([（(](?:通常|深層|全ランク|共通設定|除外中)[）)])$/);if(m)out=englishText(m[1])+' '+englishText(m[2].slice(1,-1));}
  if(out===undefined){const m=s.normalize('NFKC').match(/^(.*?)\s*\+\s*(\d+)$/);if(m){const translated=englishText(m[1]);if(translated!==m[1])out=translated+' +'+m[2];}}
  if(out===undefined&&s.includes(' / '))out=s.split(' / ').map(englishText).join(' / ');
- if(out===undefined){const m=s.match(/^(Slot \d+\s*[:：]\s*|元：)(.*)$/);if(m)out=(m[1]==='元：'?'Original: ':m[1])+englishText(m[2]);}
+ if(out===undefined){const m=s.match(/^(Slot \d+\s*[:：]\s*|(?:←\s*)?元：)(.*)$/);if(m)out=(m[1].endsWith('元：')?(m[1].startsWith('←')?'← Original: ':'Original: '):m[1])+englishText(m[2]);}
  return out===undefined?raw:raw.replace(s,out);
 }
 const templates=[
@@ -39,7 +39,7 @@ const templates=[
  [/^((?:開始戦技|開始属性・状態異常|開始魔術・祈祷|武器種発見)) [·・] (適用|左側優先で未適用)$/,(group,state)=>englishText(group)+' · '+englishText(state)],
  [/^(\d+)個( →)?$/,(n,arrow)=>n+(n==='1'?' relic':' relics')+(arrow||'')],
  [/^(.+?) (\d+)個$/,(label,n)=>englishText(label)+' '+n+(n==='1'?' relic':' relics')],
- [/^(復元済み|読込済み|プレイヤー|登録)：(.*)$/,(kind,value)=>({'復元済み':'Restored','読込済み':'Loaded','プレイヤー':'Player','登録':'Registered'}[kind])+': '+value],
+ [/^(復元済み|読込済み|プレイヤー|登録)：(.*)$/,(kind,value)=>({'復元済み':'Restored','読込済み':'Loaded','プレイヤー':'Player','登録':'Registered'}[kind])+': '+(kind==='登録'?englishText(value):value)],
  [/^「(.*)」をマイセットから削除しますか？$/,name=>'Delete “'+name+'” from My Sets?'],
  [/^(.*)を(上|下)へ$/,(name,direction)=>'Move '+name+(direction==='上'?' up':' down')],
  [/^(.*)のプリセット$/,hero=>englishText(hero)+' presets'],
@@ -75,7 +75,7 @@ function translateTree(root){if(root.nodeType===3){translateNode(root);return;}i
 const observer=new MutationObserver(records=>{observer.disconnect();try{const roots=new Set();for(const r of records){if(r.type==='childList')r.addedNodes.forEach(n=>roots.add(n));else roots.add(r.target);}for(const root of roots)if(root.isConnected)translateTree(root);}finally{observe();}});
 function observe(){observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['title','placeholder','aria-label']});}
 function refresh(){observer.disconnect();translateTree(document.body);document.documentElement.lang=language;for(const b of document.querySelectorAll('[data-language]')){const active=b.dataset.language===language;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}observe();}
-function setLanguage(value){if(!['ja','en'].includes(value))return;language=value;try{localStorage.setItem(KEY,value);}catch{}refresh();window.dispatchEvent(new Event('resize'));}
+function setLanguage(value){if(!['ja','en'].includes(value))return;language=value;try{localStorage.setItem(KEY,value);}catch{}refresh();window.dispatchEvent(new Event('nr-language-change'));window.dispatchEvent(new Event('resize'));}
 window.NR_I18N={configure,t,matches,sourceText,setLanguage,get language(){return language;}};
 for(const [ja,en]of Object.entries(window.NR_EN_UI||{}))add(ja,en);
 document.querySelectorAll('[data-language]').forEach(b=>b.addEventListener('click',()=>setLanguage(b.dataset.language)));
