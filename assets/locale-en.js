@@ -1,5 +1,6 @@
 // UI text is separate from effect IDs, comparison rules and saved settings.
 window.NR_EN_UI={
+'（取得した全結果に共通）':'(In all retrieved results)','名前を保存':'Save name',
 '復元済み：前回のセーブ':'Restored: Previous save',
 '開始戦技変更':'Starting Skill','開始属性・状態異常付与':'Starting Affinity / Ailment','開始魔術・祈祷変更':'Starting Sorcery / Incantation','潜在する力：武器種発見':'Latent Power: Weapon Discovery',
 '開始ボーナス：武器（戦技）':'Starting Weapon Skill','開始ボーナス：武器（付加）':'Starting Weapon Affinity','開始ボーナス：武器（魔術／祈祷）':'Starting Sorcery / Incantation',

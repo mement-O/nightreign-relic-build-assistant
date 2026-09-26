@@ -1135,11 +1135,14 @@ function renderSimDemeritFilter(){
  const host=$('#simDemeritFilter');if(!host)return;
  const selected=simDemeritFilterState().keys;
  const names=new Set(selected);
- for(const result of state.simResults)for(const n of simDemeritNamesFromRelics(result.relics))names.add(n);
+ const counts=new Map();
+ for(const result of state.simResults)for(const n of new Set(simDemeritNamesFromRelics(result.relics))){names.add(n);counts.set(n,(counts.get(n)||0)+1);}
+ const common=n=>state.simResults.length>0&&counts.get(n)===state.simResults.length&&!selected.has(n);
  const list=[...names].sort((a,b)=>demeritLabel(a).localeCompare(demeritLabel(b),'ja'));
  if(!list.length){host.innerHTML='';return}
- host.innerHTML=`<div class="sim-demerit-filter-box"><div class="sim-demerit-filter-head"><div><div class="sim-demerit-filter-title">検索結果に含まれるデメリット効果</div><div class="sim-demerit-filter-help">チェックした効果を含む構成を次回検索から除外します。追加スキル候補を表示中は自動で再検索します。検索条件を変更するまで選択状態を保持します。</div></div><div class="muted">除外：${selected.size}件</div></div><div class="sim-demerit-filter-grid">${list.map(n=>`<label class="sim-demerit-filter-item ${selected.has(n)?'selected':''}"><input type="checkbox" data-sim-demerit-exclude="${esc(n)}" ${selected.has(n)?'checked':''}><span>${esc(demeritLabel(n))}</span></label>`).join('')}</div></div>`;
+ host.innerHTML=`<div class="sim-demerit-filter-box"><div class="sim-demerit-filter-head"><div><div class="sim-demerit-filter-title">検索結果に含まれるデメリット効果</div><div class="sim-demerit-filter-help">チェックした効果を含む構成を次回検索から除外します。追加スキル候補を表示中は自動で再検索します。検索条件を変更するまで選択状態を保持します。</div></div><div class="muted">除外：${selected.size}件</div></div><div class="sim-demerit-filter-grid">${list.map(n=>`<label class="sim-demerit-filter-item ${selected.has(n)?'selected':''}"><input type="checkbox" data-sim-demerit-exclude="${esc(n)}" ${selected.has(n)?'checked':''} ${common(n)?'disabled':''}><span>${esc(demeritLabel(n))}${common(n)?'<small class="muted">（取得した全結果に共通）</small>':''}</span></label>`).join('')}</div></div>`;
  document.querySelectorAll('[data-sim-demerit-exclude]').forEach(ch=>ch.onchange=()=>{
+  if(ch.disabled)return;
   const s=simDemeritFilterState(),name=ch.dataset.simDemeritExclude;
   if(ch.checked)s.keys.add(name);else s.keys.delete(name);
   simDemeritSelectionChanged()
@@ -1199,6 +1202,7 @@ function saveCurrentMySet(){
  if(writeMySets([...mySets,entry])){mySetSelectedId=entry.id;renderSimResults();renderMySets();}
 }
 function moveMySet(id,delta){const next=[...mySets],i=next.findIndex(s=>s.id===id),j=i+delta;if(i<0||j<0||j>=next.length)return;[next[i],next[j]]=[next[j],next[i]];if(writeMySets(next))renderMySets();}
+function renameMySet(id,value){const name=String(value||'').trim().slice(0,80);if(!name||!mySets.some(s=>s.id===id))return false;if(!writeMySets(mySets.map(s=>s.id===id?{...s,name}:s)))return false;renderMySets();return true;}
 function deleteMySet(id){if(writeMySets(mySets.filter(s=>s.id!==id))){if(mySetSelectedId===id)mySetSelectedId=null;renderMySets();renderSimResults();}}
 function mySetMissingCount(s){if(s.profile.player!==state.player||s.profile.slot!==state.slot)return null;return s.result.relics.filter(r=>JSON.stringify(mySetRelicIdentity(state.relics.get(r.ga)||{}))!==JSON.stringify(mySetRelicIdentity(r))).length;}
 function renderMySets(){
@@ -1207,7 +1211,8 @@ function renderMySets(){
  if(!mySets.some(s=>s.id===mySetSelectedId))mySetSelectedId=mySets[0].id;
  host.innerHTML=mySets.map((s,i)=>`<article class="myset-row ${s.id===mySetSelectedId?'active':''}"><button class="myset-select" data-myset-select="${esc(s.id)}"><strong translate="no">${esc(s.name)}</strong><span>${esc(HERO_NAMES[s.hero]||'')} / ${esc(s.result.vessel.name)}</span><small><span translate="no">${esc(s.profile.player)}</span> · <span>セーブ枠 ${Number(s.profile.slot)+1}</span></small></button><div class="myset-actions"><button class="btn" data-myset-up="${esc(s.id)}" ${i===0?'disabled':''} aria-label="${esc(s.name)}を上へ">↑</button><button class="btn" data-myset-down="${esc(s.id)}" ${i===mySets.length-1?'disabled':''} aria-label="${esc(s.name)}を下へ">↓</button><button class="btn danger" data-myset-delete="${esc(s.id)}">削除</button></div></article>`).join('');
  const selected=mySets.find(s=>s.id===mySetSelectedId),missing=mySetMissingCount(selected);
- $('#mySetDetail').innerHTML=`<h3 translate="no">${esc(selected.name)}</h3>${missing===null?'<p class="note">別のセーブ枠から保存した構成です。</p>':missing?`<p class="note">現在のセーブで一致する遺物を確認できない枠が${missing}個あります。保存時の構成を表示しています。</p>`:''}${simDetailHtml(selected.result,selected.hero)}`;
+ $('#mySetDetail').innerHTML=`<form id="renameMySetForm" class="myset-save"><label>マイセット名<input id="editMySetName" value="${esc(selected.name)}" maxlength="80" required></label><button class="btn primary" type="submit">名前を保存</button></form>${missing===null?'<p class="note">別のセーブ枠から保存した構成です。</p>':missing?`<p class="note">現在のセーブで一致する遺物を確認できない枠が${missing}個あります。保存時の構成を表示しています。</p>`:''}${simDetailHtml(selected.result,selected.hero)}`;
+ $('#renameMySetForm').onsubmit=e=>{e.preventDefault();renameMySet(selected.id,$('#editMySetName').value);};
  document.querySelectorAll('[data-myset-select]').forEach(b=>b.onclick=()=>{mySetSelectedId=b.dataset.mysetSelect;renderMySets();});
  document.querySelectorAll('[data-myset-up]').forEach(b=>b.onclick=()=>moveMySet(b.dataset.mysetUp,-1));
  document.querySelectorAll('[data-myset-down]').forEach(b=>b.onclick=()=>moveMySet(b.dataset.mysetDown,1));
